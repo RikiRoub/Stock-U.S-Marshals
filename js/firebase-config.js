@@ -11,7 +11,6 @@ const firebaseConfig = {
   storageBucket: "gestion-stock-d63d0.firebasestorage.app",
   messagingSenderId: "865227689174",
   appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-  measurementId: "G-LX4G4FY0ZP"
 };
 
 
