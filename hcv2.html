@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Panel HC - Primes</title>
+<style>
+    body { font-family: Arial; margin: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+</style>
+</head>
+<body>
+<h1>Panel HC - Activités Hebdomadaires</h1>
+<table id="activities-table">
+    <thead>
+        <tr>
+            <th>Agent</th>
+            <th>Rôle</th>
+            <th>Prime ($)</th>
+            <th>Détails</th>
+            <th>Date</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "VOTRE_API_KEY",
+    authDomain: "VOTRE_AUTH_DOMAIN",
+    projectId: "VOTRE_PROJECT_ID",
+};
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+async function loadActivities() {
+    const q = query(collection(db, "weeklyActivities"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    const tbody = document.querySelector("#activities-table tbody");
+    tbody.innerHTML = "";
+
+    for(let docSnap of snapshot.docs){
+        const data = docSnap.data();
+        let userEmail = "Inconnu";
+        try {
+            const userSnap = await getDoc(doc(db,"users",data.userId));
+            if(userSnap.exists()) userEmail = userSnap.data().email;
+        } catch(e){ console.error(e);}
+        const date = data.createdAt?.toDate().toLocaleString() || "";
+        tbody.innerHTML += `<tr>
+            <td>${userEmail}</td>
+            <td>${data.role}</td>
+            <td>${data.prime.toFixed(2)}</td>
+            <td>${JSON.stringify(data.data)}</td>
+            <td>${date}</td>
+        </tr>`;
+    }
+}
+
+loadActivities();
+</script>
+</body>
+</html>
