@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>HC - Gestion des primes USMS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: Arial; margin: 20px; }
+input, button { padding: 5px; margin: 5px; }
+table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+th, td { border: 1px solid #ccc; padding: 5px; text-align: center; }
+</style>
+</head>
+<body>
+<h1>HC - Gestion des primes</h1>
+<label>Semaine début:</label>
+<input type="date" id="week-start">
+<label>Semaine fin:</label>
+<input type="date" id="week-end">
+<button id="filter-week">Filtrer</button>
+<button id="close-week">Clôturer semaine</button>
+
+<table>
+<thead>
+<tr><th>Utilisateur</th><th>Rôle</th><th>Semaine</th><th>Prime Due ($)</th></tr>
+</thead>
+<tbody id="table-primes"></tbody>
+<tfoot>
+<tr><th colspan="3">Total général</th><th id="total-general">0</th></tr>
+</tfoot>
+</table>
+
+<script type="module">
+import { db } from "./firebase.js";
+import { collection, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+async function calculerPrimesSemaine(start=null, end=null){
+    const activitiesSnap = await getDocs(collection(db, "week_activities"));
+    const tbody = document.getElementById("table-primes");
+    tbody.innerHTML = "";
+    let totalGeneral = 0;
+
+    for(const docSnap of activitiesSnap.docs){
+        const act = docSnap.data();
+        const weekStart = new Date(act.weekStart);
+        const weekEnd = new Date(act.weekEnd);
+
+        if(start && end && (weekEnd < start || weekStart > end)) continue;
+
+        let prime = 0;
+        switch(act.role){
+            case "FTF": prime = act.details.reward*0.065; break;
+            case "JSD": prime = act.details.audiences.reduce((sum,h)=>sum+125*Math.ceil(h),0); break;
+            case "SRT":
+            case "HC": prime = act.details.hours*20; break;
+            case "AFD": prime = act.details.convois*500; break;
+            case "COM": prime = act.details.publications*250 + act.details.videos*500; break;
+        }
+        totalGeneral += prime;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `<td>${act.name}</td><td>${act.role}</td><td>${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}</td><td>${prime}</td>`;
+        tbody.appendChild(row);
+    }
+    document.getElementById("total-general").textContent = totalGeneral;
+}
+
+document.getElementById("filter-week").addEventListener("click", ()=>{
+    const start = new Date(document.getElementById("week-start").value);
+    const end = new Date(document.getElementById("week-end").value);
+    calculerPrimesSemaine(start, end);
+});
+
+document.getElementById("close-week").addEventListener("click", async ()=>{
+    const start = new Date(document.getElementById("week-start").value);
+    const end = new Date(document.getElementById("week-end").value);
+    if(!start || !end) { alert("Sélectionner une semaine."); return; }
+
+    const activitiesSnap = await getDocs(collection(db, "week_activities"));
+    for(const docSnap of activitiesSnap.docs){
+        const act = docSnap.data();
+        const weekStart = new Date(act.weekStart);
+        const weekEnd = new Date(act.weekEnd);
+        if(weekEnd < start || weekStart > end) continue;
+
+        let prime = 0;
+        switch(act.role){
+            case "FTF": prime = act.details.reward*0.065; break;
+            case "JSD": prime = act.details.audiences.reduce((sum,h)=>sum+125*Math.ceil(h),0); break;
+            case "SRT":
+            case "HC": prime = act.details.hours*20; break;
+            case "AFD": prime = act.details.convois*500; break;
+            case "COM": prime = act.details.publications*250 + act.details.videos*500; break;
+        }
+
+        await addDoc(collection(db,"primes"), {name:act.name, role:act.role, montant:prime, weekStart:act.weekStart, weekEnd:act.weekEnd, paye:false});
+        await deleteDoc(doc(db,"week_activities", docSnap.id));
+    }
+    alert("Semaine clôturée et primes enregistrées !");
+    calculerPrimesSemaine(start, end);
+});
+
+// Initial
+calculerPrimesSemaine();
+</script>
+</body>
+</html>
