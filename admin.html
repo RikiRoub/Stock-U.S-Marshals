@@ -2,112 +2,115 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Admin - Gestion des Rôles</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panneau Admin - Gestion des rôles</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background-color: #f2f2f2; }
-        select { padding: 5px; }
-        button { padding: 5px 10px; cursor: pointer; }
-        @media (max-width: 600px) {
-            table, th, td { font-size: 14px; }
-            select, button { width: 100%; margin: 5px 0; }
-        }
+        body { font-family: Arial; max-width: 800px; margin: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 10px; border: 1px solid #ccc; text-align: left; }
+        select, button { padding: 5px; }
+        .logout { margin-top: 20px; }
     </style>
 </head>
 <body>
+    <h1>Gestion des rôles utilisateurs</h1>
+    <p id="status"></p>
+    <table>
+        <thead>
+            <tr>
+                <th>Email</th>
+                <th>Rôle</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="users-table"></tbody>
+    </table>
+    <button class="logout" onclick="logout()">Se déconnecter</button>
 
-<h1>Admin - Gestion des Rôles</h1>
-<button onclick="window.location.href='index.html'" style="margin-bottom: 20px;">Retour Accueil</button>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, updateDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-<table>
-    <thead>
-        <tr>
-            <th>Email</th>
-            <th>Rôle actuel</th>
-            <th>Modifier rôle</th>
-        </tr>
-    </thead>
-    <tbody id="table-users"></tbody>
-</table>
+        // Config Firebase (remplace par la tienne)
+        const firebaseConfig = {
+            apiKey: "TON_API_KEY",
+            authDomain: "TON_PROJET.firebaseapp.com",
+            projectId: "TON_PROJET",
+            storageBucket: "TON_PROJET.appspot.com",
+            messagingSenderId: "TON_MESSAGING_ID",
+            appId: "TON_APP_ID"
+        };
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-// Config Firebase
-const firebaseConfig = {
-    apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-    authDomain: "gestion-stock-d63d0.firebaseapp.com",
-    projectId: "gestion-stock-d63d0",
-    storageBucket: "gestion-stock-d63d0.appspot.com",
-    messagingSenderId: "865227689174",
-    appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-    measurementId: "G-LX4G4FY0ZP"
-};
+        // Vérification ADMIN
+        onAuthStateChanged(auth, async (user) => {
+            if (!user) {
+                window.location.href = "login.html";
+                return;
+            }
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore(app);
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (!userDoc.exists() || userDoc.data().role !== "ADMIN") {
+                document.getElementById("status").innerText = "Accès refusé. Rôle ADMIN requis.";
+                return;
+            }
 
-// Vérification rôle admin
-onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-        window.location.href = "login.html";
-        return;
-    }
-    const docRef = doc(db, "users", user.uid);
-    const docSnap = await getDoc(docRef);
-    if (!docSnap.exists() || docSnap.data().role !== "admin") {
-        alert("Accès interdit : page réservée aux administrateurs");
-        window.location.href = "index.html";
-        return;
-    }
-    afficherUtilisateurs();
-});
+            document.getElementById("status").innerText = "Connecté en tant qu'ADMIN";
+            loadUsers();
+        });
 
-async function afficherUtilisateurs() {
-    const tbody = document.getElementById("table-users");
-    tbody.innerHTML = "";
-    const querySnapshot = await getDocs(collection(db, "users"));
-    querySnapshot.forEach(userDoc => {
-        const user = userDoc.data();
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${user.email}</td>
-            <td>${user.role}</td>
-            <td>
-                <select onchange="changerRole('${userDoc.id}', this.value)">
-                    <option value="">Sélectionner</option>
-                    <option ${user.role === "USMS" ? "selected" : ""}>USMS</option>
-                    <option ${user.role === "JSD" ? "selected" : ""}>JSD</option>
-                    <option ${user.role === "SRT" ? "selected" : ""}>SRT</option>
-                    <option ${user.role === "AFD" ? "selected" : ""}>AFD</option>
-                    <option ${user.role === "Com" ? "selected" : ""}>Com</option>
-                    <option ${user.role === "HC" ? "selected" : ""}>HC</option>
-                    <option ${user.role === "admin" ? "selected" : ""}>admin</option>
-                </select>
-            </td>
-        `;
-        tbody.appendChild(row);
-    });
-}
+        // Charger tous les utilisateurs
+        async function loadUsers() {
+            const querySnapshot = await getDocs(collection(db, "users"));
+            const tableBody = document.getElementById("users-table");
+            tableBody.innerHTML = "";
 
-window.changerRole = async function(uid, nouveauRole) {
-    if (!nouveauRole) return;
-    try {
-        await updateDoc(doc(db, "users", uid), { role: nouveauRole });
-        alert("Rôle mis à jour avec succès !");
-        afficherUtilisateurs();
-    } catch (error) {
-        console.error("Erreur lors de la mise à jour du rôle :", error);
-        alert("Erreur lors de la mise à jour du rôle.");
-    }
-};
-</script>
+            querySnapshot.forEach((docSnap) => {
+                const data = docSnap.data();
+                const tr = document.createElement("tr");
 
+                // Email
+                const tdEmail = document.createElement("td");
+                tdEmail.innerText = data.email || "Inconnu";
+                tr.appendChild(tdEmail);
+
+                // Sélecteur de rôle
+                const tdRole = document.createElement("td");
+                const select = document.createElement("select");
+                ["pending", "ADMIN", "AFD", "USMS", "SRT", "HC", "COM"].forEach(role => {
+                    const option = document.createElement("option");
+                    option.value = role;
+                    option.text = role;
+                    if (data.role === role) option.selected = true;
+                    select.appendChild(option);
+                });
+                tdRole.appendChild(select);
+                tr.appendChild(tdRole);
+
+                // Bouton sauvegarder
+                const tdAction = document.createElement("td");
+                const btn = document.createElement("button");
+                btn.innerText = "Sauvegarder";
+                btn.onclick = async () => {
+                    await updateDoc(doc(db, "users", docSnap.id), { role: select.value });
+                    alert(`Rôle mis à jour pour ${data.email}`);
+                };
+                tdAction.appendChild(btn);
+                tr.appendChild(tdAction);
+
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Déconnexion
+        function logout() {
+            signOut(auth).then(() => {
+                window.location.href = "login.html";
+            });
+        }
+    </script>
 </body>
 </html>
