@@ -69,5 +69,27 @@
             });
         }
 
-        functi
+        function ajouterArticle(nom, quantite) {
+            stock.push({ nom, quantite });
+            localStorage.setItem("stock", JSON.stringify(stock));
+            afficherStock();
+        }
 
+        function supprimer(index) {
+            stock.splice(index, 1);
+            localStorage.setItem("stock", JSON.stringify(stock));
+            afficherStock();
+        }
+
+        document.getElementById("form-stock").addEventListener("submit", function(e) {
+            e.preventDefault();
+            const nom = document.getElementById("nom").value;
+            const quantite = parseInt(document.getElementById("quantite").value);
+            ajouterArticle(nom, quantite);
+            document.getElementById("form-stock").reset();
+        });
+
+        afficherStock();
+    </script>
+</body>
+</html>
