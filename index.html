@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Gestion de Stock</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -30,6 +31,15 @@
         button {
             padding: 5px 10px;
         }
+        @media (max-width: 600px) {
+            table, th, td {
+                font-size: 14px;
+            }
+            input, button {
+                width: 100%;
+                margin: 5px 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -55,11 +65,9 @@
 
     <!-- Firebase SDKs -->
     <script type="module">
-        // Import Firebase functions
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        // Config Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
             authDomain: "gestion-stock-d63d0.firebaseapp.com",
@@ -70,11 +78,9 @@
             measurementId: "G-LX4G4FY0ZP"
         };
 
-        // Initialisation Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
-        // Référence à la collection "stock"
         const stockCollection = collection(db, "stock");
 
         // Ajouter un article
