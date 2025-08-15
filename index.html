@@ -1,219 +1,222 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Gestion de Stock</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: center;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        form {
-            margin-bottom: 20px;
-        }
-        input, select {
-            padding: 5px;
-            margin: 5px;
-        }
-        button {
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-        @media (max-width: 600px) {
-            table, th, td {
-                font-size: 14px;
-            }
-            input, select, button {
-                width: 100%;
-                margin: 5px 0;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Gestion de Stock</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    form { margin-bottom: 20px; }
+    input, select, button { padding: 5px; margin: 5px; }
+    button { cursor: pointer; }
+    @media (max-width: 600px) {
+        table, th, td { font-size: 14px; }
+        input, select, button { width: 100%; margin: 5px 0; }
+    }
+</style>
 </head>
 <body>
-    <h1>Mon Stock</h1>
+<h1>Mon Stock</h1>
 
-    <form id="form-stock">
-        <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
-        <input type="number" id="quantite" placeholder="Quantité" min="0" required>
-        <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
-        <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
-        <input type="text" id="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
-        <input type="text" id="statut" placeholder="STATUT ACTUEL" required>
-        <input type="text" id="affaires" placeholder="AFFAIRS LIÉE" required>
+<form id="form-stock">
+    <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
+    <input type="number" id="quantite" placeholder="Quantité" min="0" required>
+    <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
+    <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
+    <input type="text" id="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
+    <input type="text" id="statut" placeholder="STATUT ACTUEL" required>
+    <input type="text" id="affaires" placeholder="AFFAIRS LIÉE" required>
 
-        <select id="typeArmes" required>
-            <option value="">TYPE D'ARMES</option>
-            <option>Fusil</option>
-            <option>Pistolet</option>
-            <option>Mitrailleuse</option>
-        </select>
+    <select id="typeArmes" required>
+        <option value="">TYPE D'ARMES</option>
+        <option>Fusil</option>
+        <option>Pistolet</option>
+        <option>Mitrailleuse</option>
+    </select>
 
-        <select id="calibre" required>
-            <option value="">CALIBRE</option>
-            <option>9mm</option>
-            <option>7.62mm</option>
-            <option>.45 ACP</option>
-        </select>
+    <select id="calibre" required>
+        <option value="">CALIBRE</option>
+        <option>9mm</option>
+        <option>7.62mm</option>
+        <option>.45 ACP</option>
+    </select>
 
-        <select id="stockage" required>
-            <option value="">STOCKAGE</option>
-            <option>Armoire</option>
-            <option>Box sécurisé</option>
-            <option>Magasin</option>
-        </select>
+    <select id="stockage" required>
+        <option value="">STOCKAGE</option>
+        <option>Armoire</option>
+        <option>Box sécurisé</option>
+        <option>Magasin</option>
+    </select>
 
-        <button type="submit">Ajouter</button>
-    </form>
+    <button type="submit">Ajouter</button>
+</form>
 
-    <table>
-        <thead>
-            <tr>
-                <th>N° DE SAISIES</th>
-                <th>ETIQUETTE ARMES</th>
-                <th>Quantité</th>
-                <th>TYPE D'ARMES</th>
-                <th>CALIBRE</th>
-                <th>DATE D'ENTRE SAISIES</th>
-                <th>LIEU DE SAISIE</th>
-                <th>PROVENANCE PRÉSUMÉE</th>
-                <th>STATUT ACTUEL</th>
-                <th>AFFAIRS LIÉE</th>
-                <th>STOCKAGE</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="tableau-stock"></tbody>
-    </table>
+<table>
+    <thead>
+        <tr>
+            <th>N° DE SAISIES</th>
+            <th>ETIQUETTE ARMES</th>
+            <th>Quantité</th>
+            <th>TYPE D'ARMES</th>
+            <th>CALIBRE</th>
+            <th>DATE D'ENTRE SAISIES</th>
+            <th>LIEU DE SAISIE</th>
+            <th>PROVENANCE PRÉSUMÉE</th>
+            <th>STATUT ACTUEL</th>
+            <th>AFFAIRS LIÉE</th>
+            <th>STOCKAGE</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody id="tableau-stock"></tbody>
+</table>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-            authDomain: "gestion-stock-d63d0.firebaseapp.com",
-            projectId: "gestion-stock-d63d0",
-            storageBucket: "gestion-stock-d63d0.firebasestorage.app",
-            messagingSenderId: "865227689174",
-            appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-            measurementId: "G-LX4G4FY0ZP"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+    authDomain: "gestion-stock-d63d0.firebaseapp.com",
+    projectId: "gestion-stock-d63d0",
+    storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+    messagingSenderId: "865227689174",
+    appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+    measurementId: "G-LX4G4FY0ZP"
+};
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const stockCollection = collection(db, "stock");
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const stockCollection = collection(db, "stock");
 
-        let compteur = 1; // Pour N° DE SAISIES
+let compteur = 1;
 
-        async function ajouterArticle(article) {
-            try {
-                await addDoc(stockCollection, article);
-            } catch (error) {
-                console.error("Erreur lors de l'ajout :", error);
-            }
-        }
+// Formater numéro de saisie
+function formatNumSaisie(num) {
+    return "N°AAF" + num.toString().padStart(6, "0");
+}
 
-        async function supprimer(id) {
-            if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
-            try {
-                await deleteDoc(doc(db, "stock", id));
-            } catch (error) {
-                console.error("Erreur lors de la suppression :", error);
-            }
-        }
+// Ajouter un article
+async function ajouterArticle(article) {
+    await addDoc(stockCollection, article);
+}
 
-        function afficherStock() {
-            const tbody = document.getElementById("tableau-stock");
-            onSnapshot(stockCollection, (snapshot) => {
-                tbody.innerHTML = "";
-                compteur = 1;
-                snapshot.forEach(docSnap => {
-                    const item = docSnap.data();
-                    const row = document.createElement("tr");
+// Supprimer un article
+async function supprimer(id) {
+    if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
+    await deleteDoc(doc(db, "stock", id));
+}
 
-                    row.innerHTML = `
-                        <td>${compteur}</td>
-                        <td>${item.nom}</td>
-                        <td>${item.quantite}</td>
-                        <td>
-                            <select onchange="modifierSelect('${docSnap.id}','typeArmes', this.value)">
-                                <option ${item.typeArmes === "Fusil" ? "selected" : ""}>Fusil</option>
-                                <option ${item.typeArmes === "Pistolet" ? "selected" : ""}>Pistolet</option>
-                                <option ${item.typeArmes === "Mitrailleuse" ? "selected" : ""}>Mitrailleuse</option>
-                            </select>
-                        </td>
-                        <td>
-                            <select onchange="modifierSelect('${docSnap.id}','calibre', this.value)">
-                                <option ${item.calibre === "9mm" ? "selected" : ""}>9mm</option>
-                                <option ${item.calibre === "7.62mm" ? "selected" : ""}>7.62mm</option>
-                                <option ${item.calibre === ".45 ACP" ? "selected" : ""}>.45 ACP</option>
-                            </select>
-                        </td>
-                        <td>${item.date}</td>
-                        <td>${item.lieu}</td>
-                        <td>${item.provenance}</td>
-                        <td>${item.statut}</td>
-                        <td>${item.affaires}</td>
-                        <td>
-                            <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
-                                <option ${item.stockage === "Armoire" ? "selected" : ""}>Armoire</option>
-                                <option ${item.stockage === "Box sécurisé" ? "selected" : ""}>Box sécurisé</option>
-                                <option ${item.stockage === "Magasin" ? "selected" : ""}>Magasin</option>
-                            </select>
-                        </td>
-                        <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
-                    `;
-                    tbody.appendChild(row);
-                    compteur++;
-                });
-            });
-        }
+// Mettre à jour un article
+async function modifierArticle(id, article) {
+    await updateDoc(doc(db, "stock", id), article);
+}
 
-        // Modifier select dans Firestore
-        async function modifierSelect(id, champ, valeur) {
-            try {
-                const docRef = doc(db, "stock", id);
-                await docRef.update({ [champ]: valeur });
-            } catch (error) {
-                console.error("Erreur lors de la modification :", error);
-            }
-        }
-        window.modifierSelect = modifierSelect;
+// Rendre une ligne éditable
+function rendreEditable(row, item, id) {
+    const cells = row.children;
+    cells[1].innerHTML = `<input value="${item.nom}">`;
+    cells[2].innerHTML = `<input type="number" value="${item.quantite}">`;
+    cells[3].innerHTML = `
+        <select>
+            <option ${item.typeArmes==="Fusil"?"selected":""}>Fusil</option>
+            <option ${item.typeArmes==="Pistolet"?"selected":""}>Pistolet</option>
+            <option ${item.typeArmes==="Mitrailleuse"?"selected":""}>Mitrailleuse</option>
+        </select>`;
+    cells[4].innerHTML = `
+        <select>
+            <option ${item.calibre==="9mm"?"selected":""}>9mm</option>
+            <option ${item.calibre==="7.62mm"?"selected":""}>7.62mm</option>
+            <option ${item.calibre===".45 ACP"?"selected":""}>.45 ACP</option>
+        </select>`;
+    cells[5].innerHTML = `<input value="${item.date}">`;
+    cells[6].innerHTML = `<input value="${item.lieu}">`;
+    cells[7].innerHTML = `<input value="${item.provenance}">`;
+    cells[8].innerHTML = `<input value="${item.statut}">`;
+    cells[9].innerHTML = `<input value="${item.affaires}">`;
+    cells[10].innerHTML = `
+        <select>
+            <option ${item.stockage==="Armoire"?"selected":""}>Armoire</option>
+            <option ${item.stockage==="Box sécurisé"?"selected":""}>Box sécurisé</option>
+            <option ${item.stockage==="Magasin"?"selected":""}>Magasin</option>
+        </select>`;
+    cells[11].innerHTML = `<button onclick="validerModif('${id}', this)">Valider</button>`;
+}
 
-        document.getElementById("form-stock").addEventListener("submit", function(e) {
-            e.preventDefault();
-            const article = {
-                nom: document.getElementById("nom").value.trim(),
-                quantite: parseInt(document.getElementById("quantite").value, 10),
-                date: document.getElementById("date").value.trim(),
-                lieu: document.getElementById("lieu").value.trim(),
-                provenance: document.getElementById("provenance").value.trim(),
-                statut: document.getElementById("statut").value.trim(),
-                affaires: document.getElementById("affaires").value.trim(),
-                typeArmes: document.getElementById("typeArmes").value,
-                calibre: document.getElementById("calibre").value,
-                stockage: document.getElementById("stockage").value
-            };
-            ajouterArticle(article);
-            this.reset();
+// Valider modification
+window.validerModif = async function(id, btn) {
+    const row = btn.parentElement.parentElement;
+    const cells = row.children;
+    const article = {
+        nom: cells[1].children[0].value,
+        quantite: parseInt(cells[2].children[0].value,10),
+        typeArmes: cells[3].children[0].value,
+        calibre: cells[4].children[0].value,
+        date: cells[5].children[0].value,
+        lieu: cells[6].children[0].value,
+        provenance: cells[7].children[0].value,
+        statut: cells[8].children[0].value,
+        affaires: cells[9].children[0].value,
+        stockage: cells[10].children[0].value
+    };
+    await modifierArticle(id, article);
+}
+
+// Afficher le stock
+function afficherStock() {
+    const tbody = document.getElementById("tableau-stock");
+    onSnapshot(stockCollection, (snapshot) => {
+        tbody.innerHTML = "";
+        compteur = 1;
+        snapshot.forEach(docSnap => {
+            const item = docSnap.data();
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${formatNumSaisie(compteur)}</td>
+                <td>${item.nom}</td>
+                <td>${item.quantite}</td>
+                <td>${item.typeArmes}</td>
+                <td>${item.calibre}</td>
+                <td>${item.date}</td>
+                <td>${item.lieu}</td>
+                <td>${item.provenance}</td>
+                <td>${item.statut}</td>
+                <td>${item.affaires}</td>
+                <td>${item.stockage}</td>
+                <td>
+                    <button onclick="rendreEditable(this.parentElement.parentElement, ${JSON.stringify(item)}, '${docSnap.id}')">Modifier</button>
+                    <button onclick="supprimer('${docSnap.id}')">Supprimer</button>
+                </td>`;
+            tbody.appendChild(row);
+            compteur++;
         });
+    });
+}
 
-        afficherStock();
-        window.supprimer = supprimer;
-    </script>
+document.getElementById("form-stock").addEventListener("submit", function(e){
+    e.preventDefault();
+    const article = {
+        nom: document.getElementById("nom").value.trim(),
+        quantite: parseInt(document.getElementById("quantite").value,10),
+        date: document.getElementById("date").value.trim(),
+        lieu: document.getElementById("lieu").value.trim(),
+        provenance: document.getElementById("provenance").value.trim(),
+        statut: document.getElementById("statut").value.trim(),
+        affaires: document.getElementById("affaires").value.trim(),
+        typeArmes: document.getElementById("typeArmes").value,
+        calibre: document.getElementById("calibre").value,
+        stockage: document.getElementById("stockage").value
+    };
+    ajouterArticle(article);
+    this.reset();
+});
+
+afficherStock();
+window.supprimer = supprimer;
+window.rendreEditable = rendreEditable;
+</script>
 </body>
 </html>
