@@ -1,158 +1,77 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Primes USMS</title>
+<meta charset="UTF-8">
+<title>Enregistrement Activités USMS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: Arial; margin: 20px; }
+input, select, button { padding: 5px; margin: 5px; }
+</style>
 </head>
 <body>
-    <h1>Primes USMS</h1>
+<h1>Enregistrement des activités</h1>
 
-    <h2>FTF</h2>
-    <label>Reward du Wanted : $</label>
-    <input type="number" id="ftfReward">
-    <button onclick="calculateFTF()">Calculer</button>
-    <p>Prime Agent : $<span id="ftfPrime">0</span></p>
+<label>Utilisateur:</label>
+<input type="text" id="user-name" placeholder="Nom de l'agent">
+<label>Rôle:</label>
+<select id="role">
+    <option value="FTF">FTF</option>
+    <option value="JSD">JSD</option>
+    <option value="SRT">SRT</option>
+    <option value="AFD">AFD</option>
+    <option value="COM">COM</option>
+    <option value="HC">HC</option>
+</select>
 
-    <h2>JSD</h2>
-    <label>Nombre d'audiences (< 1h = 1 audience, >1h = plusieurs) :</label>
-    <input type="number" id="jsdHours">
-    <button onclick="calculateJSD()">Calculer</button>
-    <p>Prime JSD : $<span id="jsdPrime">0</span></p>
+<div id="details-container"></div>
+<button id="add-activity">Ajouter activité</button>
 
-    <h2>SRT</h2>
-    <label>Heures travaillées : </label>
-    <input type="number" id="srtHours">
-    <button onclick="calculateSRT()">Calculer</button>
-    <p>Prime SRT : $<span id="srtPrime">0</span></p>
+<script type="module">
+import { db } from "./firebase.js";
+import { collection, addDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-    <h2>AFD</h2>
-    <label>Nombre de convois : </label>
-    <input type="number" id="afdConvoi">
-    <button onclick="calculateAFD()">Calculer</button>
-    <p>Prime AFD : $<span id="afdPrime">0</span></p>
+const roleSelect = document.getElementById("role");
+const detailsContainer = document.getElementById("details-container");
 
-    <h2>Com</h2>
-    <label>Publications : </label>
-    <input type="number" id="comPub">
-    <label>Vidéos : </label>
-    <input type="number" id="comVid">
-    <button onclick="calculateCOM()">Calculer</button>
-    <p>Prime COM : $<span id="comPrime">0</span></p>
+function updateDetailsForm() {
+    const role = roleSelect.value;
+    detailsContainer.innerHTML = "";
+    if(role === "FTF"){
+        detailsContainer.innerHTML = `<label>Reward Wanted:</label><input type="number" id="reward" min="0">`;
+    } else if(role === "JSD"){
+        detailsContainer.innerHTML = `<label>Durée audiences (heures, séparées par ,):</label><input type="text" id="audiences">`;
+    } else if(role === "SRT" || role === "HC"){
+        detailsContainer.innerHTML = `<label>Heures travaillées:</label><input type="number" id="hours" min="0">`;
+    } else if(role === "AFD"){
+        detailsContainer.innerHTML = `<label>Nombre de convois:</label><input type="number" id="convois" min="0">`;
+    } else if(role === "COM"){
+        detailsContainer.innerHTML = `<label>Publications:</label><input type="number" id="publications" min="0">`;
+        detailsContainer.innerHTML += `<label>Vidéos:</label><input type="number" id="videos" min="0">`;
+    }
+}
+roleSelect.addEventListener("change", updateDetailsForm);
+updateDetailsForm();
 
-    <h2>HC</h2>
-    <label>Heures travaillées : </label>
-    <input type="number" id="hcHours">
-    <button onclick="calculateHC()">Calculer</button>
-    <p>Prime HC : $<span id="hcPrime">0</span></p>
+document.getElementById("add-activity").addEventListener("click", async () => {
+    const name = document.getElementById("user-name").value;
+    const role = roleSelect.value;
+    let details = {};
 
-    <h2>Total des primes : $<span id="totalPrime">0</span></h2>
+    if(role === "FTF") details.reward = parseFloat(document.getElementById("reward").value || 0);
+    else if(role === "JSD") details.audiences = document.getElementById("audiences").value.split(",").map(h => parseFloat(h));
+    else if(role === "SRT" || role === "HC") details.hours = parseFloat(document.getElementById("hours").value || 0);
+    else if(role === "AFD") details.convois = parseInt(document.getElementById("convois").value || 0);
+    else if(role === "COM") details.publications = parseInt(document.getElementById("publications").value || 0),
+         details.videos = parseInt(document.getElementById("videos").value || 0);
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    const now = new Date();
+    const weekStart = new Date(now.setDate(now.getDate() - now.getDay())); 
+    const weekEnd = new Date(now.setDate(now.getDate() - now.getDay() + 6));
 
-        const firebaseConfig = {
-          apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-          authDomain: "gestion-stock-d63d0.firebaseapp.com",
-          projectId: "gestion-stock-d63d0",
-          storageBucket: "gestion-stock-d63d0.firebasestorage.app",
-          messagingSenderId: "865227689174",
-          appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-        let currentUser;
-
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) {
-                window.location.href = "login.html";
-                return;
-            }
-            currentUser = user;
-            const docRef = doc(db, "users", user.uid);
-            const docSnap = await getDoc(docRef);
-            if (!docSnap.exists()) {
-                alert("Utilisateur introuvable");
-                window.location.href = "login.html";
-                return;
-            }
-        });
-
-        function calculateFTF() {
-            const reward = parseFloat(document.getElementById("ftfReward").value) || 0;
-            const prime = reward * 0.065;
-            document.getElementById("ftfPrime").textContent = prime.toFixed(2);
-            updateTotal();
-        }
-
-        function calculateJSD() {
-            const hours = parseFloat(document.getElementById("jsdHours").value) || 0;
-            const audiences = Math.ceil(hours); // chaque heure >1h = 1 audience supplémentaire
-            const prime = audiences * 125;
-            document.getElementById("jsdPrime").textContent = prime.toFixed(2);
-            updateTotal();
-        }
-
-        function calculateSRT() {
-            const hours = parseFloat(document.getElementById("srtHours").value) || 0;
-            const rate = 50; // exemple prime par heure
-            const prime = hours * rate;
-            document.getElementById("srtPrime").textContent = prime.toFixed(2);
-            updateTotal();
-        }
-
-        function calculateAFD() {
-            const convois = parseInt(document.getElementById("afdConvoi").value) || 0;
-            const prime = convois * 500;
-            document.getElementById("afdPrime").textContent = prime.toFixed(2);
-            updateTotal();
-        }
-
-        function calculateCOM() {
-            const pub = parseInt(document.getElementById("comPub").value) || 0;
-            const vid = parseInt(document.getElementById("comVid").value) || 0;
-            const prime = pub * 250 + vid * 500;
-            document.getElementById("comPrime").textContent = prime.toFixed(2);
-            updateTotal();
-        }
-
-        function calculateHC() {
-            const hours = parseFloat(document.getElementById("hcHours").value) || 0;
-            const rate = 30; // exemple prime par heure
-            const prime = hours * rate;
-            document.getElementById("hcPrime").textContent = prime.toFixed(2);
-            updateTotal();
-        }
-
-        function updateTotal() {
-            const ftf = parseFloat(document.getElementById("ftfPrime").textContent) || 0;
-            const jsd = parseFloat(document.getElementById("jsdPrime").textContent) || 0;
-            const srt = parseFloat(document.getElementById("srtPrime").textContent) || 0;
-            const afd = parseFloat(document.getElementById("afdPrime").textContent) || 0;
-            const com = parseFloat(document.getElementById("comPrime").textContent) || 0;
-            const hc = parseFloat(document.getElementById("hcPrime").textContent) || 0;
-            const total = ftf + jsd + srt + afd + com + hc;
-            document.getElementById("totalPrime").textContent = total.toFixed(2);
-            savePrimes(total);
-        }
-
-        async function savePrimes(total) {
-            if (!currentUser) return;
-            const userRef = doc(db, "primes", currentUser.uid);
-            await setDoc(userRef, {
-                ftf: parseFloat(document.getElementById("ftfPrime").textContent),
-                jsd: parseFloat(document.getElementById("jsdPrime").textContent),
-                srt: parseFloat(document.getElementById("srtPrime").textContent),
-                afd: parseFloat(document.getElementById("afdPrime").textContent),
-                com: parseFloat(document.getElementById("comPrime").textContent),
-                hc: parseFloat(document.getElementById("hcPrime").textContent),
-                total: total,
-                date: new Date().toISOString()
-            });
-        }
-    </script>
+    await addDoc(collection(db, "week_activities"), {name, role, details, weekStart, weekEnd});
+    alert("Activité enregistrée !");
+});
+</script>
 </body>
 </html>
