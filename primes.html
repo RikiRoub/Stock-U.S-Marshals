@@ -2,14 +2,54 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Primes</title>
+    <title>Primes USMS</title>
 </head>
 <body>
     <h1>Primes USMS</h1>
 
+    <h2>FTF</h2>
+    <label>Reward du Wanted : $</label>
+    <input type="number" id="ftfReward">
+    <button onclick="calculateFTF()">Calculer</button>
+    <p>Prime Agent : $<span id="ftfPrime">0</span></p>
+
+    <h2>JSD</h2>
+    <label>Nombre d'audiences (< 1h = 1 audience, >1h = plusieurs) :</label>
+    <input type="number" id="jsdHours">
+    <button onclick="calculateJSD()">Calculer</button>
+    <p>Prime JSD : $<span id="jsdPrime">0</span></p>
+
+    <h2>SRT</h2>
+    <label>Heures travaillées : </label>
+    <input type="number" id="srtHours">
+    <button onclick="calculateSRT()">Calculer</button>
+    <p>Prime SRT : $<span id="srtPrime">0</span></p>
+
+    <h2>AFD</h2>
+    <label>Nombre de convois : </label>
+    <input type="number" id="afdConvoi">
+    <button onclick="calculateAFD()">Calculer</button>
+    <p>Prime AFD : $<span id="afdPrime">0</span></p>
+
+    <h2>Com</h2>
+    <label>Publications : </label>
+    <input type="number" id="comPub">
+    <label>Vidéos : </label>
+    <input type="number" id="comVid">
+    <button onclick="calculateCOM()">Calculer</button>
+    <p>Prime COM : $<span id="comPrime">0</span></p>
+
+    <h2>HC</h2>
+    <label>Heures travaillées : </label>
+    <input type="number" id="hcHours">
+    <button onclick="calculateHC()">Calculer</button>
+    <p>Prime HC : $<span id="hcPrime">0</span></p>
+
+    <h2>Total des primes : $<span id="totalPrime">0</span></h2>
+
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
         import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 
         const firebaseConfig = {
@@ -25,32 +65,95 @@
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
+        let currentUser;
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "login.html";
                 return;
             }
+            currentUser = user;
             const docRef = doc(db, "users", user.uid);
             const docSnap = await getDoc(docRef);
             if (!docSnap.exists()) {
+                alert("Utilisateur introuvable");
                 window.location.href = "login.html";
                 return;
             }
-
-            const userData = docSnap.data();
-            const role = userData.role;
-            const currentPage = window.location.pathname.split("/").pop();
-            const rolePages = {
-                "AFD": ["armes_a_feu.html", "armes_blanche.html", "saisie_illegale.html", "saisie_legale.html"],
-                "USMS": ["primes.html"]
-            };
-
-            if (!rolePages[role] || !rolePages[role].includes(currentPage)) {
-                alert("Vous n'avez pas la permission d'accéder à cette page.");
-                window.location.href = "index.html";
-            }
         });
+
+        function calculateFTF() {
+            const reward = parseFloat(document.getElementById("ftfReward").value) || 0;
+            const prime = reward * 0.065;
+            document.getElementById("ftfPrime").textContent = prime.toFixed(2);
+            updateTotal();
+        }
+
+        function calculateJSD() {
+            const hours = parseFloat(document.getElementById("jsdHours").value) || 0;
+            const audiences = Math.ceil(hours); // chaque heure >1h = 1 audience supplémentaire
+            const prime = audiences * 125;
+            document.getElementById("jsdPrime").textContent = prime.toFixed(2);
+            updateTotal();
+        }
+
+        function calculateSRT() {
+            const hours = parseFloat(document.getElementById("srtHours").value) || 0;
+            const rate = 50; // exemple prime par heure
+            const prime = hours * rate;
+            document.getElementById("srtPrime").textContent = prime.toFixed(2);
+            updateTotal();
+        }
+
+        function calculateAFD() {
+            const convois = parseInt(document.getElementById("afdConvoi").value) || 0;
+            const prime = convois * 500;
+            document.getElementById("afdPrime").textContent = prime.toFixed(2);
+            updateTotal();
+        }
+
+        function calculateCOM() {
+            const pub = parseInt(document.getElementById("comPub").value) || 0;
+            const vid = parseInt(document.getElementById("comVid").value) || 0;
+            const prime = pub * 250 + vid * 500;
+            document.getElementById("comPrime").textContent = prime.toFixed(2);
+            updateTotal();
+        }
+
+        function calculateHC() {
+            const hours = parseFloat(document.getElementById("hcHours").value) || 0;
+            const rate = 30; // exemple prime par heure
+            const prime = hours * rate;
+            document.getElementById("hcPrime").textContent = prime.toFixed(2);
+            updateTotal();
+        }
+
+        function updateTotal() {
+            const ftf = parseFloat(document.getElementById("ftfPrime").textContent) || 0;
+            const jsd = parseFloat(document.getElementById("jsdPrime").textContent) || 0;
+            const srt = parseFloat(document.getElementById("srtPrime").textContent) || 0;
+            const afd = parseFloat(document.getElementById("afdPrime").textContent) || 0;
+            const com = parseFloat(document.getElementById("comPrime").textContent) || 0;
+            const hc = parseFloat(document.getElementById("hcPrime").textContent) || 0;
+            const total = ftf + jsd + srt + afd + com + hc;
+            document.getElementById("totalPrime").textContent = total.toFixed(2);
+            savePrimes(total);
+        }
+
+        async function savePrimes(total) {
+            if (!currentUser) return;
+            const userRef = doc(db, "primes", currentUser.uid);
+            await setDoc(userRef, {
+                ftf: parseFloat(document.getElementById("ftfPrime").textContent),
+                jsd: parseFloat(document.getElementById("jsdPrime").textContent),
+                srt: parseFloat(document.getElementById("srtPrime").textContent),
+                afd: parseFloat(document.getElementById("afdPrime").textContent),
+                com: parseFloat(document.getElementById("comPrime").textContent),
+                hc: parseFloat(document.getElementById("hcPrime").textContent),
+                total: total,
+                date: new Date().toISOString()
+            });
+        }
     </script>
 </body>
 </html>
