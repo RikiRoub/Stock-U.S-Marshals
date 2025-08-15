@@ -9,10 +9,8 @@
     <form id="signup-form">
         <label>Email :</label>
         <input type="email" id="email" required><br><br>
-
         <label>Mot de passe :</label>
         <input type="password" id="password" required><br><br>
-
         <button type="submit">S’inscrire</button>
     </form>
 
@@ -21,7 +19,6 @@
         import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
         import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-        // Configuration Firebase
         const firebaseConfig = {
           apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
           authDomain: "gestion-stock-d63d0.firebaseapp.com",
@@ -35,28 +32,28 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const signupForm = document.getElementById("signup-form");
+        const form = document.getElementById("signup-form");
 
-        signupForm.addEventListener("submit", async (e) => {
+        form.addEventListener("submit", async (e) => {
             e.preventDefault();
-
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
 
             try {
-                // Créer l'utilisateur dans Firebase Auth
+                // Création du compte Firebase Auth
                 const userCredential = await createUserWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // Créer le document utilisateur dans Firestore
+                // Création du document utilisateur dans Firestore avec roles vide
                 await setDoc(doc(db, "users", user.uid), {
-                    email: user.email,
-                    roles: [], // Aucun rôle par défaut
-                    createdAt: new Date()
+                    email: email,
+                    roles: [], // roles vide par défaut
+                    date: new Date().toISOString()
                 });
 
                 alert("Compte créé avec succès !");
-                signupForm.reset();
+                form.reset();
+
             } catch (error) {
                 console.error(error);
                 alert("Erreur : " + error.message);
