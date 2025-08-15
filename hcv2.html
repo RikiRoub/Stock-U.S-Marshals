@@ -1,102 +1,88 @@
+<div id="hc-admin" class="tabcontent">
+  <h2>HC - Administration des primes</h2>
+  <button id="reset-primes-btn" style="background:red;color:white;padding:8px 12px;border:none;border-radius:5px;margin-bottom:10px;">Réinitialiser toutes les primes</button>
+  <table id="hc-admin-table">
+    <thead>
+      <tr>
+        <th>Agent</th>
+        <th>Heures</th>
+        <th>Prime</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, getDocs, query, where, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { collection, getDocs, setDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-    authDomain: "gestion-stock-d63d0.firebaseapp.com",
-    projectId: "gestion-stock-d63d0",
-    storageBucket: "gestion-stock-d63d0.appspot.com",
-    messagingSenderId: "865227689174",
-    appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-    measurementId: "G-LX4G4FY0ZP"
-};
+async function loadHCAdmin() {
+    const tableBody = document.querySelector("#hc-admin-table tbody");
+    tableBody.innerHTML = "";
 
-const app = initializeApp(firebaseConfig);
-const auth = getAuth();
-const db = getFirestore(app);
-
-const hcTableBody = document.querySelector("#hc-table tbody");
-const totalTableBody = document.querySelector("#total-table tbody");
-const exportBtn = document.getElementById("export-btn");
-
-function getStartOfWeek() {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    return new Date(d.setDate(diff));
-}
-
-function exportToExcel(data) {
-    let csv = 'Agent,Rôle,Détails,Prime,Date\n';
-    data.forEach(row => {
-        csv += `${row.agent},${row.role},"${JSON.stringify(row.details)}",${row.prime},${row.date}\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = "primes_agents.csv";
-    link.click();
-}
-
-async function loadAllActivities() {
-    hcTableBody.innerHTML = "";
-    totalTableBody.innerHTML = "";
-
-    const startWeek = getStartOfWeek();
-    const q = query(
-        collection(db, "userActivities"),
-        where("createdAt", ">=", Timestamp.fromDate(startWeek)),
-        orderBy("createdAt")
-    );
-
-    const snapshot = await getDocs(q);
-    const activities = [];
-    const totals = {};
-    const hcRows = [];
-
+    const snapshot = await getDocs(collection(db, "userActivities"));
     snapshot.forEach(docSnap => {
-        const act = docSnap.data();
-        const date = act.createdAt?.toDate().toLocaleString() || "";
-        activities.push({ ...act, date });
+        const data = docSnap.data();
+        const userId = docSnap.id;
 
-        // Construire le HTML du tableau en mémoire
-        hcRows.push(`<tr>
-            <td>${act.agentName || act.userId}</td>
-            <td>${act.role}</td>
-            <td>${JSON.stringify(act.data)}</td>
-            <td>${act.prime.toFixed(2)}</td>
-            <td>${date}</td>
-        </tr>`);
-
-        totals[act.agentName] = (totals[act.agentName] || 0) + act.prime;
+        if(data.hc && data.hc.length){
+            data.hc.forEach((act, idx) => {
+                const prime = act.hours * 30;
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${userId}</td>
+                    <td><input type="number" value="${act.hours}" data-user="${userId}" data-index="${idx}" class="hc-hours-input"></td>
+                    <td>${prime.toFixed(2)}</td>
+                    <td><button class="save-btn" data-user="${userId}" data-index="${idx}">Enregistrer</button></td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
     });
 
-    // Injecter tout le HTML du tableau en une seule fois
-    hcTableBody.innerHTML = hcRows.join('');
+    tableBody.querySelectorAll(".save-btn").forEach(btn => {
+        btn.addEventListener("click", async e => {
+            const userId = e.target.dataset.user;
+            const idx = parseInt(e.target.dataset.index);
+            const input = document.querySelector(`.hc-hours-input[data-user="${userId}"][data-index="${idx}"]`);
+            const newHours = parseFloat(input.value);
 
-    // Construire et injecter le tableau des totaux
-    const totalRows = Object.entries(totals).map(([agent, total]) => 
-        `<tr><td>${agent}</td><td>${total.toFixed(2)}</td></tr>`
-    );
-    totalTableBody.innerHTML = totalRows.join('');
-
-    // Export
-    exportBtn.onclick = () => exportToExcel(activities.map(a => ({
-        agent: a.agentName || a.userId,
-        role: a.role,
-        details: a.data,
-        prime: a.prime.toFixed(2),
-        date: a.date
-    })));
+            const userDocRef = doc(db, "userActivities", userId);
+            const userSnap = await getDoc(userDocRef);
+            if(userSnap.exists()){
+                const userData = userSnap.data();
+                userData.hc[idx].hours = newHours;
+                await setDoc(userDocRef, userData, {merge:true});
+                loadHCAdmin(); // refresh
+            }
+        });
+    });
 }
 
-onAuthStateChanged(auth, user => {
-    if(!user){
-        window.location.href = "login.html";
+// Bouton pour reset toutes les primes HC
+document.getElementById("reset-primes-btn").addEventListener("click", async () => {
+    const snapshot = await getDocs(collection(db, "userActivities"));
+    for(const docSnap of snapshot.docs){
+        const data = docSnap.data();
+        if(data.hc){
+            data.hc = []; // reset toutes les heures HC
+            await setDoc(doc(db, "userActivities", docSnap.id), data, {merge:true});
+        }
+    }
+    loadHCAdmin(); // refresh
+});
+
+// Afficher ce panneau uniquement pour les admins HC
+onAuthStateChanged(auth, async user => {
+    if(!user) return;
+    const userSnap = await getDoc(doc(db, "userActivities", user.uid));
+    const roles = userSnap.exists() ? userSnap.data().roles || [] : [];
+    if(!roles.includes("hc")){
+        document.querySelector(".tablinks[data-role='hc']").style.display="none";
         return;
     }
-    loadAllActivities();
+    openTab("hc-admin");
+    loadHCAdmin();
 });
 </script>
