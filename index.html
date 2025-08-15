@@ -2,50 +2,177 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Gestion du Stock d'Armes</title>
+    <title>Gestion Saisies Légales</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f5f5f5;
-        }
-        h1 { margin-bottom: 40px; text-align: center; }
-        .boutons {
-            display: flex;
-            gap: 40px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .bouton {
-            padding: 20px 40px;
-            font-size: 18px;
-            text-decoration: none;
-            color: #fff;
-            background-color: #007bff;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            transition: background-color 0.3s, transform 0.2s;
-        }
-        .bouton:hover {
-            background-color: #0056b3;
-            transform: scale(1.05);
-        }
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        form { margin-bottom: 20px; }
+        input, select { padding: 5px; margin: 5px; }
+        button { padding: 5px 10px; cursor: pointer; }
         @media (max-width: 600px) {
-            .bouton { width: 80%; text-align: center; font-size: 16px; padding: 15px; }
+            table, th, td { font-size: 14px; }
+            input, select, button { width: 100%; margin: 5px 0; }
         }
     </style>
 </head>
 <body>
-    <h1>Gestion du Stock d'Armes</h1>
-    <div class="boutons">
-        <a href="armes_a_feu.html" class="bouton">Armes à Feu</a>
-        <a href="arme_blanche.html" class="bouton">Armes Blanches</a>
-    </div>
+    <h1>Stock Saisies Légales</h1>
+
+    <form id="form-stock">
+        <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
+        <input type="number" id="quantite" placeholder="Quantité" min="0" required>
+        <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
+        <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
+        <input type="text" id="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
+        <input type="text" id="statut" placeholder="STATUT ACTUEL" required>
+        <input type="text" id="affaires" placeholder="AFFAIRS LIÉE" required>
+
+        <select id="typeArmes" required>
+            <option value="">TYPE D'ARMES</option>
+            <option>Couteau</option>
+            <option>Poignard</option>
+            <option>Lance</option>
+        </select>
+
+        <select id="stockage" required>
+            <option value="">STOCKAGE</option>
+            <option>Armoire</option>
+            <option>Box sécurisé</option>
+            <option>Magasin</option>
+        </select>
+
+        <button type="submit">Ajouter</button>
+    </form>
+
+    <table>
+        <thead>
+            <tr>
+                <th>N° DE SAISIES</th>
+                <th>ETIQUETTE ARMES</th>
+                <th>Quantité</th>
+                <th>TYPE D'ARMES</th>
+                <th>DATE D'ENTRE SAISIES</th>
+                <th>LIEU DE SAISIE</th>
+                <th>PROVENANCE PRÉSUMÉE</th>
+                <th>STATUT ACTUEL</th>
+                <th>AFFAIRS LIÉE</th>
+                <th>STOCKAGE</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="tableau-stock"></tbody>
+    </table>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+            authDomain: "gestion-stock-d63d0.firebaseapp.com",
+            projectId: "gestion-stock-d63d0",
+            storageBucket: "gestion-stock-d63d0.appspot.com",
+            messagingSenderId: "865227689174",
+            appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+            measurementId: "G-LX4G4FY0ZP"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const stockCollection = collection(db, "saisie_legale");
+
+        let compteur = 1;
+
+        async function ajouterArticle(article) {
+            try {
+                await addDoc(stockCollection, article);
+            } catch (error) {
+                console.error("Erreur lors de l'ajout :", error);
+            }
+        }
+
+        async function supprimer(id) {
+            if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
+            try {
+                await deleteDoc(doc(db, "saisie_legale", id));
+            } catch (error) {
+                console.error("Erreur lors de la suppression :", error);
+            }
+        }
+
+        function afficherStock() {
+            const tbody = document.getElementById("tableau-stock");
+            onSnapshot(stockCollection, (snapshot) => {
+                tbody.innerHTML = "";
+                compteur = 1;
+                snapshot.forEach(docSnap => {
+                    const item = docSnap.data();
+                    const numeroSaisie = "SL" + compteur.toString().padStart(6, "0");
+                    const row = document.createElement("tr");
+
+                    row.innerHTML = `
+                        <td>${numeroSaisie}</td>
+                        <td>${item.nom}</td>
+                        <td>${item.quantite}</td>
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','typeArmes', this.value)">
+                                <option ${item.typeArmes === "Couteau" ? "selected" : ""}>Couteau</option>
+                                <option ${item.typeArmes === "Poignard" ? "selected" : ""}>Poignard</option>
+                                <option ${item.typeArmes === "Lance" ? "selected" : ""}>Lance</option>
+                            </select>
+                        </td>
+                        <td>${item.date}</td>
+                        <td>${item.lieu}</td>
+                        <td>${item.provenance}</td>
+                        <td>${item.statut}</td>
+                        <td>${item.affaires}</td>
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
+                                <option ${item.stockage === "Armoire" ? "selected" : ""}>Armoire</option>
+                                <option ${item.stockage === "Box sécurisé" ? "selected" : ""}>Box sécurisé</option>
+                                <option ${item.stockage === "Magasin" ? "selected" : ""}>Magasin</option>
+                            </select>
+                        </td>
+                        <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
+                    `;
+                    tbody.appendChild(row);
+                    compteur++;
+                });
+            });
+        }
+
+        async function modifierSelect(id, champ, valeur) {
+            try {
+                const docRef = doc(db, "saisie_legale", id);
+                await updateDoc(docRef, { [champ]: valeur });
+            } catch (error) {
+                console.error("Erreur lors de la modification :", error);
+            }
+        }
+        window.modifierSelect = modifierSelect;
+
+        document.getElementById("form-stock").addEventListener("submit", function(e) {
+            e.preventDefault();
+            const article = {
+                nom: document.getElementById("nom").value.trim(),
+                quantite: parseInt(document.getElementById("quantite").value, 10),
+                date: document.getElementById("date").value.trim(),
+                lieu: document.getElementById("lieu").value.trim(),
+                provenance: document.getElementById("provenance").value.trim(),
+                statut: document.getElementById("statut").value.trim(),
+                affaires: document.getElementById("affaires").value.trim(),
+                typeArmes: document.getElementById("typeArmes").value,
+                stockage: document.getElementById("stockage").value
+            };
+            ajouterArticle(article);
+            this.reset();
+        });
+
+        afficherStock();
+        window.supprimer = supprimer;
+    </script>
 </body>
 </html>
