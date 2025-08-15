@@ -115,6 +115,7 @@
             }
         }
 
+        // Fonction supprimer accessible depuis le HTML
         async function supprimer(id) {
             if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
             try {
@@ -123,6 +124,7 @@
                 console.error("Erreur lors de la suppression :", error);
             }
         }
+        window.supprimer = supprimer;
 
         async function modifierSelect(id, champ, valeur) {
             try {
