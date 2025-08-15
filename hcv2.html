@@ -92,32 +92,22 @@ onAuthStateChanged(auth, async user=>{
         document.body.innerHTML="<h2>Accès refusé. Veuillez vous connecter.</h2>";
         return;
     }
-
     document.getElementById("welcome-msg").innerText=`Bienvenue ${user.email}`;
 
-    try {
-        const roleSnap = await getDoc(doc(db,"roles",user.uid));
-        if(!roleSnap.exists()){
-            document.body.innerHTML="<h2>Rôle introuvable. Contactez l'administrateur.</h2>";
-            return;
-        }
+    // Vérification du rôle HC
+    const roleSnap = await getDoc(doc(db,"roles",user.uid));
+    const userRole = roleSnap.exists() ? roleSnap.data().role?.toLowerCase().trim() : null;
 
-        const userRole = roleSnap.data().role?.toLowerCase().trim();
-        if(userRole !== "hc"){
-            document.body.innerHTML="<h2>Accès réservé aux utilisateurs HC.</h2>";
-            return;
-        }
-
-        // Récupérer les activités et afficher le résumé
-        const snapshot = await getDocs(collection(db,"userActivities"));
-        const data = {};
-        snapshot.forEach(docSnap => data[docSnap.id] = docSnap.data());
-        renderSummary(data);
-
-    } catch (error) {
-        console.error(error);
-        document.body.innerHTML="<h2>Erreur lors de la récupération des données.</h2>";
+    if(userRole !== "hc"){
+        document.body.innerHTML="<h2>Accès réservé aux utilisateurs HC.</h2>";
+        return;
     }
+
+    // Récupération et affichage des primes
+    const snapshot = await getDocs(collection(db,"userActivities"));
+    const data = {};
+    snapshot.forEach(docSnap => data[docSnap.id] = docSnap.data());
+    renderSummary(data);
 });
 </script>
 
