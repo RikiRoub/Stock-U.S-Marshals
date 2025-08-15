@@ -1,30 +1,73 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Mon site logistique</title>
-    <link rel="stylesheet" href="style.css">
+    <title>Gestion de Stock</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input {
+            padding: 5px;
+            margin: 5px;
+        }
+        button {
+            padding: 5px 10px;
+        }
+    </style>
 </head>
 <body>
-    <header>
-        <h1>Mon Entreprise de Logistique</h1>
-        <nav>
-            <a href="#">Accueil</a>
-            <a href="#">Services</a>
-            <a href="#">Suivi de colis</a>
-            <a href="#">Contact</a>
-        </nav>
-    </header>
+    <h1>Mon Stock</h1>
 
-    <main>
-        <section>
-            <h2>Bienvenue</h2>
-            <p>Nous livrons vos colis rapidement et en toute sécurité.</p>
-        </section>
-    </main>
+    <form id="form-stock">
+        <input type="text" id="nom" placeholder="Nom de l'article" required>
+        <input type="number" id="quantite" placeholder="Quantité" required>
+        <button type="submit">Ajouter</button>
+    </form>
 
-    <footer>
-        <p>© 2025 Mon Entreprise de Logistique</p>
-    </footer>
-</body>
-</html>
+    <table>
+        <thead>
+            <tr>
+                <th>Article</th>
+                <th>Quantité</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="tableau-stock">
+        </tbody>
+    </table>
+
+    <script>
+        let stock = JSON.parse(localStorage.getItem("stock")) || [];
+
+        function afficherStock() {
+            const tbody = document.getElementById("tableau-stock");
+            tbody.innerHTML = "";
+            stock.forEach((item, index) => {
+                const row = `<tr>
+                    <td>${item.nom}</td>
+                    <td>${item.quantite}</td>
+                    <td><button onclick="supprimer(${index})">Supprimer</button></td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+        }
+
+        functi
+
