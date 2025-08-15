@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Résumé des Primes - HC</title>
+<title>Résumé des Primes</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
 <style>
@@ -15,7 +15,7 @@ th { background:#4D96FF; color:white; }
 </head>
 <body>
 
-<h1>Résumé des Primes - HC</h1>
+<h1>Résumé des Primes</h1>
 <p id="welcome-msg"></p>
 <table id="summary-table">
   <thead>
@@ -36,7 +36,7 @@ th { background:#4D96FF; color:white; }
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
@@ -94,24 +94,7 @@ onAuthStateChanged(auth, async user=>{
     }
     document.getElementById("welcome-msg").innerText=`Bienvenue ${user.email}`;
 
-    // Vérification du rôle HC
-    const roleSnap = await getDoc(doc(db,"roles",user.uid));
-    let userRole = null;
-
-    if(roleSnap.exists()) {
-        userRole = roleSnap.data().role;
-        console.log("Rôle récupéré :", userRole); // debug
-        if(typeof userRole === "string") {
-            userRole = userRole.toLowerCase().trim(); // normalisation
-        }
-    }
-
-    if(userRole !== "hc"){
-        document.body.innerHTML="<h2>Accès réservé aux utilisateurs HC.</h2>";
-        return;
-    }
-
-    // Récupération et affichage des primes
+    // Récupération et affichage des primes sans restriction
     const snapshot = await getDocs(collection(db,"userActivities"));
     const data = {};
     snapshot.forEach(docSnap => data[docSnap.id] = docSnap.data());
