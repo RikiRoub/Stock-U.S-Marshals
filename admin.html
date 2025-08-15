@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Panneau Admin - Gestion des rôles</title>
     <style>
-        body { font-family: Arial; max-width: 800px; margin: auto; }
+        body { font-family: Arial; max-width: 900px; margin: auto; padding: 20px; }
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { padding: 10px; border: 1px solid #ccc; text-align: left; }
         select, button { padding: 5px; }
@@ -18,7 +18,7 @@
         <thead>
             <tr>
                 <th>Email</th>
-                <th>Rôle</th>
+                <th>Rôles</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -31,14 +31,13 @@
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
         import { getFirestore, collection, getDocs, updateDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        // Config Firebase (remplace par la tienne)
         const firebaseConfig = {
-              apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-              authDomain: "gestion-stock-d63d0.firebaseapp.com",
-              projectId: "gestion-stock-d63d0",
-              storageBucket: "gestion-stock-d63d0.firebasestorage.app",
-              messagingSenderId: "865227689174",
-              appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+            apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+            authDomain: "gestion-stock-d63d0.firebaseapp.com",
+            projectId: "gestion-stock-d63d0",
+            storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+            messagingSenderId: "865227689174",
+            appId: "1:865227689174:web:213e7f6e44f183c6928d77",
         };
 
         const app = initializeApp(firebaseConfig);
@@ -53,7 +52,9 @@
             }
 
             const userDoc = await getDoc(doc(db, "users", user.uid));
-            if (!userDoc.exists() || userDoc.data().role !== "ADMIN") {
+            const userData = userDoc.data();
+
+            if (!userDoc.exists() || !userData.roles || !userData.roles.includes("ADMIN")) {
                 document.getElementById("status").innerText = "Accès refusé. Rôle ADMIN requis.";
                 return;
             }
@@ -77,25 +78,25 @@
                 tdEmail.innerText = data.email || "Inconnu";
                 tr.appendChild(tdEmail);
 
-                // Sélecteur de rôle
-                const tdRole = document.createElement("td");
+                // Sélecteur de rôle unique pour simplifier l'UI
+                const tdRoles = document.createElement("td");
                 const select = document.createElement("select");
                 ["pending", "ADMIN", "AFD", "USMS", "SRT", "HC", "COM"].forEach(role => {
                     const option = document.createElement("option");
                     option.value = role;
                     option.text = role;
-                    if (data.role === role) option.selected = true;
+                    if (data.roles && data.roles.includes(role)) option.selected = true;
                     select.appendChild(option);
                 });
-                tdRole.appendChild(select);
-                tr.appendChild(tdRole);
+                tdRoles.appendChild(select);
+                tr.appendChild(tdRoles);
 
                 // Bouton sauvegarder
                 const tdAction = document.createElement("td");
                 const btn = document.createElement("button");
                 btn.innerText = "Sauvegarder";
                 btn.onclick = async () => {
-                    await updateDoc(doc(db, "users", docSnap.id), { role: select.value });
+                    await updateDoc(doc(db, "users", docSnap.id), { roles: [select.value] });
                     alert(`Rôle mis à jour pour ${data.email}`);
                 };
                 tdAction.appendChild(btn);
