@@ -30,6 +30,7 @@
         }
         button {
             padding: 5px 10px;
+            cursor: pointer;
         }
         @media (max-width: 600px) {
             table, th, td {
@@ -47,7 +48,7 @@
 
     <form id="form-stock">
         <input type="text" id="nom" placeholder="Nom de l'article" required>
-        <input type="number" id="quantite" placeholder="Quantité" required>
+        <input type="number" id="quantite" placeholder="Quantité" min="0" required>
         <button type="submit">Ajouter</button>
     </form>
 
@@ -80,17 +81,29 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-
         const stockCollection = collection(db, "stock");
 
         // Ajouter un article
         async function ajouterArticle(nom, quantite) {
-            await addDoc(stockCollection, { nom, quantite });
+            if (!nom || isNaN(quantite) || quantite < 0) {
+                alert("Veuillez entrer un nom valide et une quantité positive.");
+                return;
+            }
+            try {
+                await addDoc(stockCollection, { nom, quantite });
+            } catch (error) {
+                console.error("Erreur lors de l'ajout :", error);
+            }
         }
 
         // Supprimer un article
         async function supprimer(id) {
-            await deleteDoc(doc(db, "stock", id));
+            if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
+            try {
+                await deleteDoc(doc(db, "stock", id));
+            } catch (error) {
+                console.error("Erreur lors de la suppression :", error);
+            }
         }
 
         // Afficher le stock en temps réel
@@ -100,12 +113,13 @@
                 tbody.innerHTML = "";
                 snapshot.forEach(docSnap => {
                     const item = docSnap.data();
-                    const row = `<tr>
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
                         <td>${item.nom}</td>
                         <td>${item.quantite}</td>
                         <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
-                    </tr>`;
-                    tbody.innerHTML += row;
+                    `;
+                    tbody.appendChild(row);
                 });
             });
         }
@@ -113,10 +127,10 @@
         // Gestion du formulaire
         document.getElementById("form-stock").addEventListener("submit", function(e) {
             e.preventDefault();
-            const nom = document.getElementById("nom").value;
-            const quantite = parseInt(document.getElementById("quantite").value);
+            const nom = document.getElementById("nom").value.trim();
+            const quantite = parseInt(document.getElementById("quantite").value, 10);
             ajouterArticle(nom, quantite);
-            document.getElementById("form-stock").reset();
+            this.reset();
         });
 
         // Charger et écouter les données
