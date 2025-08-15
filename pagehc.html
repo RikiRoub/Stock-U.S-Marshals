@@ -1,215 +1,101 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>USMS – Panel HC</title>
+  <meta charset="UTF-8">
+  <title>Panel HC</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import {
-      getAuth, onAuthStateChanged, signOut
-    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-    import {
-      getFirestore, doc, getDoc, setDoc, updateDoc, addDoc, collection,
-      serverTimestamp, query, where, getDocs, orderBy
-    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-
-    const firebaseConfig = {
-      // TODO: REMPLACE ICI par ta configuration Firebase
-      apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-      authDomain: "gestion-stock-d63d0.firebaseapp.com",
-      projectId: "gestion-stock-d63d0",
-      storageBucket: "gestion-stock-d63d0.firebasestorage.app",
-      messagingSenderId: "865227689174",
-      appId: "1:865227689174:web:213e7f6e44f183c6928d77"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const $ = s => document.querySelector(s);
-    const monthKey = (d=new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-
-    async function currentUserRole() {
-      const u = auth.currentUser;
-      if (!u) return null;
-      const snap = await getDoc(doc(db,"users",u.uid));
-      return snap.exists() ? snap.data().role : null;
-    }
-
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        location.href = "./index.html";
-        return;
-      }
-      const role = await currentUserRole();
-      if (role !== "hc") {
-        alert("Accès réservé aux HC.");
-        location.href = "./index.html";
-        return;
-      }
-      $("#whoami").textContent = `${user.displayName || user.email} – HC`;
-      $("#period").value = monthKey();
-      await loadSettings();
-      await refreshTable();
-    });
-
-    async function logout(){ await signOut(auth); location.href = "./index.html"; }
-
-    // ====== SETTINGS (taux horaires éditables par HC) ======
-    async function loadSettings(){
-      const sref = doc(db,"settings","rates");
-      const snap = await getDoc(sref);
-      const { rateSRT=0, rateHC=0 } = snap.exists() ? snap.data() : {};
-      $("#rateSRT").value = rateSRT;
-      $("#rateHC").value = rateHC;
-    }
-    async function saveSettings(){
-      const sref = doc(db,"settings","rates");
-      await setDoc(sref, {
-        rateSRT: Number($("#rateSRT").value)||0,
-        rateHC: Number($("#rateHC").value)||0,
-        updatedAt: serverTimestamp()
-      }, { merge: true });
-      alert("Taux mis à jour !");
-    }
-
-    // ====== TABLEAU RÉCAP ======
-    function reduceByAgent(rows){
-      // rows: docs entries (unpaid) de la période
-      const map = new Map();
-      for (const r of rows){
-        const u = r.uid;
-        if (!map.has(u)) map.set(u, {
-          uid: u, email: r._user?.email || "—", name: r._user?.displayName || "",
-          FTF:0,JSD:0,SRT:0,AFD:0,COM:0,HC:0,total:0, count:0
-        });
-        const m = map.get(u);
-        m.FTF += r.categories?.FTF?.amount || 0;
-        m.JSD += r.categories?.JSD?.amount || 0;
-        m.SRT += r.categories?.SRT?.amount || 0;
-        m.AFD += r.categories?.AFD?.amount || 0;
-        m.COM += r.categories?.COM?.amount || 0;
-        m.HC  += r.categories?.HC?.amount  || 0;
-        m.total += r.total || 0;
-        m.count += 1;
-      }
-      return Array.from(map.values()).sort((a,b)=>b.total-a.total);
-    }
-
-    async function refreshTable(){
-      const period = $("#period").value.trim() || monthKey();
-      $("#tbody").innerHTML = `<tr><td class="p-3" colspan="10">Chargement…</td></tr>`;
-
-      // entries unpaid de la période
-      const q = query(
-        collection(db,"entries"),
-        where("period","==",period),
-        where("status","==","unpaid"),
-        orderBy("uid")
-      );
-      const snap = await getDocs(q);
-      const rows = [];
-      const userCache = new Map();
-      for (const d of snap.docs){
-        const data = d.data(); data._id = d.id;
-        // enrichit avec user (email/nom)
-        if (!userCache.has(data.uid)){
-          const us = await getDoc(doc(db,"users",data.uid));
-          userCache.set(data.uid, us.exists()?us.data():{});
-        }
-        data._user = userCache.get(data.uid);
-        rows.push(data);
-      }
-      const agg = reduceByAgent(rows);
-
-      if (!agg.length){
-        $("#tbody").innerHTML = `<tr><td class="p-3" colspan="10">Aucune entrée “unpaid” pour ${period}.</td></tr>`;
-        $("#sumTotal").textContent = "$0.00";
-        return;
-      }
-
-      let html = "";
-      let grand = 0;
-      for (const a of agg){
-        grand += a.total;
-        html += `
-        <tr class="border-b">
-          <td class="p-3">${a.name || a.email}</td>
-          <td class="p-3 text-right">$${a.FTF.toFixed(2)}</td>
-          <td class="p-3 text-right">$${a.JSD.toFixed(2)}</td>
-          <td class="p-3 text-right">$${a.SRT.toFixed(2)}</td>
-          <td class="p-3 text-right">$${a.AFD.toFixed(2)}</td>
-          <td class="p-3 text-right">$${a.COM.toFixed(2)}</td>
-          <td class="p-3 text-right">$${a.HC.toFixed(2)}</td>
-          <td class="p-3 text-right font-semibold">$${a.total.toFixed(2)}</td>
-          <td class="p-3 text-center">${a.count}</td>
-          <td class="p-3">
-            <button data-uid="${a.uid}" class="payOne px-3 py-1 rounded bg-emerald-600 text-white">Marquer payé</button>
-          </td>
-        </tr>`;
-      }
-      $("#tbody").innerHTML = html;
-      $("#sumTotal").textContent = `$${grand.toFixed(2)}`;
-
-      document.querySelectorAll(".payOne").forEach(btn=>{
-        btn.addEventListener("click", ()=>markPaidForAgent(btn.dataset.uid, period));
-      });
-    }
-
-    async function markPaidForAgent(uid, period){
-      // marque toutes les entries unpaid de l'agent sur la période en "paid"
-      const q = query(
-        collection(db,"entries"),
-        where("period","==",period),
-        where("status","==","unpaid"),
-        where("uid","==",uid)
-      );
-      const snap = await getDocs(q);
-      const batch = [];
-      for (const d of snap.docs){
-        batch.push(updateDoc(doc(db,"entries",d.id), { status: "paid", paidAt: serverTimestamp() }));
-      }
-      await Promise.all(batch);
-      await refreshTable();
-    }
-
-    async function markPaidAll(){
-      const period = $("#period").value.trim() || monthKey();
-      const q = query(
-        collection(db,"entries"),
-        where("period","==",period),
-        where("status","==","unpaid")
-      );
-      const snap = await getDocs(q);
-      if (snap.empty){ alert("Rien à marquer payé."); return; }
-      if (!confirm(`Marquer TOUT payé pour ${period} ?`)) return;
-      const jobs = [];
-      for (const d of snap.docs){
-        jobs.push(updateDoc(doc(db,"entries",d.id), { status: "paid", paidAt: serverTimestamp() }));
-      }
-      await Promise.all(jobs);
-      await refreshTable();
-    }
-
-    window.addEventListener("DOMContentLoaded", ()=>{
-      $("#logout").addEventListener("click", logout);
-      $("#saveRates").addEventListener("click", saveSettings);
-      $("#refresh").addEventListener("click", refreshTable);
-      $("#resetAll").addEventListener("click", markPaidAll);
-    });
-  </script>
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <section class="max-w-6xl mx-auto mt-6 p-4">
-    <header class="flex items-center justify-between mb-4">
-      <div>
-        <h1 class="text-2xl font-bold">USMS – Panel HC</h1>
-        <p id="whoami" class="text-sm text-slate-500"></p>
-      </div>
-      <div class="flex items-center gap-2">
-        <a href="./index.html" class="px-3 py-2 rounded-xl bg-indigo-600 text-white">Page Agent</a>
-        <button id="logout" class="px-3 py-2 rounded-xl bg-slate-800 text-white">Déconnexion</button>
-      </div>
-    </heade
+<body class="bg-gray-100 p-4">
+
+  <div class="max-w-4xl mx-auto bg-white p-4 rounded shadow">
+    <div class="flex justify-between items-center mb-4">
+      <div id="whoami"></div>
+      <button id="logoutBtn" class="bg-red-500 text-white p-1 px-3 rounded">Déconnexion</button>
+    </div>
+
+    <h2 class="text-xl font-bold mb-4">Récapitulatif des primes</h2>
+    <table class="w-full border">
+      <thead>
+        <tr class="bg-gray-200">
+          <th class="border p-2">Agent</th>
+          <th class="border p-2">Total ($)</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+
+    <button id="resetBtn" class="bg-orange-500 text-white p-2 mt-4 rounded">Reset toutes les primes</button>
+  </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, deleteDoc, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+  authDomain: "gestion-stock-d63d0.firebaseapp.com",
+  projectId: "gestion-stock-d63d0",
+  storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+  messagingSenderId: "865227689174",
+  appId: "1:865227689174:web:213e7f6e44f183c6928d77"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+function $(id) { return document.querySelector(id); }
+
+async function currentUserRoles() {
+  const u = auth.currentUser;
+  if (!u) return [];
+  const snap = await getDoc(doc(db, "users", u.uid));
+  return snap.exists() ? (snap.data().roles || []) : [];
+}
+
+$("#logoutBtn").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) location.href = "index.html";
+  const roles = await currentUserRoles();
+  if (!roles.includes("hc")) {
+    alert("Accès réservé HC");
+    location.href = "index.html";
+    return;
+  }
+  $("#whoami").textContent = `${user.displayName || user.email} – HC`;
+  await loadTable();
+});
+
+async function loadTable() {
+  const snap = await getDocs(collection(db, "entries"));
+  const data = {};
+  snap.forEach(docu => {
+    const d = docu.data();
+    if (!data[d.uid]) data[d.uid] = { name: d.displayName, total: 0 };
+    data[d.uid].total += d.total;
+  });
+
+  $("#tableBody").innerHTML = "";
+  for (let uid in data) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td class="border p-2">${data[uid].name}</td><td class="border p-2">${data[uid].total.toFixed(2)}</td>`;
+    $("#tableBody").appendChild(tr);
+  }
+}
+
+$("#resetBtn").onclick = async () => {
+  if (!confirm("Tout supprimer ?")) return;
+  const snap = await getDocs(collection(db, "entries"));
+  for (const docu of snap.docs) {
+    await deleteDoc(doc(db, "entries", docu.id));
+  }
+  await loadTable();
+};
+</script>
+</body>
+</html>
