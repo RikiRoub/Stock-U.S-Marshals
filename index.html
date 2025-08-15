@@ -59,7 +59,31 @@
                 const btnAFD = document.createElement("button");
                 btnAFD.className = "btn";
                 btnAFD.textContent = "Gestion Armes à Feu (AFD)";
-                btnAFD.onclick = () => window.location.href = "armes_a_feu.html";
+                btnAFD.onclick = () => window.location.href = "afd/armes_a_feu.html";
+                container.appendChild(btnAFD);
+            }
+
+            if (roles.includes("AFD")) {
+                const btnAFD = document.createElement("button");
+                btnAFD.className = "btn";
+                btnAFD.textContent = "Gestion Arme Blanche (AFD)";
+                btnAFD.onclick = () => window.location.href = "afd/arme_blanche.html";
+                container.appendChild(btnAFD);
+            }
+
+            if (roles.includes("AFD")) {
+                const btnAFD = document.createElement("button");
+                btnAFD.className = "btn";
+                btnAFD.textContent = "Gestion Saisie Lllegale (AFD)";
+                btnAFD.onclick = () => window.location.href = "afd/saisie_illegale.html";
+                container.appendChild(btnAFD);
+            }
+
+            if (roles.includes("AFD")) {
+                const btnAFD = document.createElement("button");
+                btnAFD.className = "btn";
+                btnAFD.textContent = "Gestion Saisie Legale  (AFD)";
+                btnAFD.onclick = () => window.location.href = "afd/saisie_legale.html";
                 container.appendChild(btnAFD);
             }
 
@@ -113,3 +137,4 @@
     </script>
 </body>
 </html>
+
