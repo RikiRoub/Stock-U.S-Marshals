@@ -1,43 +1,29 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Dashboard Agent - Primes</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { text-align: center; }
-        form, table { margin-bottom: 20px; width: 100%; }
-        input, select, button { padding: 5px; margin: 5px 0; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background-color: #f2f2f2; }
-        @media (max-width:600px){ input, select, button{width:100%;} }
-    </style>
+<meta charset="UTF-8">
+<title>Dashboard Agent - Primes</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f2f2f2; }
+    input, select, button { padding: 5px; margin: 2px; }
+    button { cursor: pointer; }
+</style>
 </head>
 <body>
-    <h1>Dashboard Agent</h1>
-    <button onclick="window.location.href='index.html'">Accueil</button>
+<h1>Dashboard Agent</h1>
+<button onclick="window.location.href='index.html'">Accueil</button>
 
-    <div id="forms-container"></div>
-
-    <h2>Historique de vos activités (semaine en cours)</h2>
-    <table>
-        <thead>
-            <tr>
-                <th>Rôle</th>
-                <th>Données</th>
-                <th>Prime ($)</th>
-                <th>Date</th>
-            </tr>
-        </thead>
-        <tbody id="historyTableBody"></tbody>
-    </table>
+<div id="tablesContainer"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, orderBy, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
@@ -53,125 +39,90 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore(app);
 
-const formsContainer = document.getElementById("forms-container");
-const historyTableBody = document.getElementById("historyTableBody");
+const tablesContainer = document.getElementById("tablesContainer");
 
 onAuthStateChanged(auth, async (user)=>{
     if(!user){ window.location.href="login.html"; return; }
 
-    // Récupération des rôles
     const userDoc = await getDoc(doc(db,"users",user.uid));
     if(!userDoc.exists()){ alert("Utilisateur introuvable"); return; }
     const roles = userDoc.data().roles || [];
 
-    // Création des formulaires dynamiques selon le rôle
     roles.forEach(role=>{
-        const form = document.createElement("form");
-        form.id = `form-${role}`;
-        form.innerHTML = `<h3>${role}</h3>`;
-        if(role==="FTF"){
-            form.innerHTML += `
-                Reward du Wanted: <input type="number" id="ftfReward" required>
-                <button type="submit">Ajouter</button>
-            `;
-        } else if(role==="JSD"){
-            form.innerHTML += `
-                Durée audience (en minutes): <input type="number" id="jsdDuration" required>
-                <button type="submit">Ajouter</button>
-            `;
-        } else if(role==="SRT" || role==="HC"){
-            form.innerHTML += `
-                Heures travaillées: <input type="number" id="${role}Hours" required>
-                <button type="submit">Ajouter</button>
-            `;
-        } else if(role==="AFD"){
-            form.innerHTML += `
-                Nombre de convois: <input type="number" id="afdConvois" required>
-                <button type="submit">Ajouter</button>
-            `;
-        } else if(role==="COM"){
-            form.innerHTML += `
-                Publications: <input type="number" id="comPub" required>
-                Vidéos: <input type="number" id="comVid" required>
-                <button type="submit">Ajouter</button>
-            `;
-        }
-        formsContainer.appendChild(form);
-
-        // Gestion de l'envoi du formulaire
-        form.addEventListener("submit", async (e)=>{
-            e.preventDefault();
-            let data={}, prime=0;
-            if(role==="FTF"){
-                const reward = parseFloat(document.getElementById("ftfReward").value);
-                data.reward = reward;
-                prime = reward*0.065;
-            } else if(role==="JSD"){
-                let minutes = parseInt(document.getElementById("jsdDuration").value);
-                let audiences = Math.ceil(minutes/60);
-                data.minutes = minutes;
-                prime = audiences*125;
-            } else if(role==="SRT" || role==="HC"){
-                let hours = parseFloat(document.getElementById(`${role}Hours`).value);
-                data.hours = hours;
-                prime = hours*50; // Exemple $50/h
-            } else if(role==="AFD"){
-                let convois = parseInt(document.getElementById("afdConvois").value);
-                data.convois = convois;
-                prime = convois*500;
-            } else if(role==="COM"){
-                let pub = parseInt(document.getElementById("comPub").value);
-                let vid = parseInt(document.getElementById("comVid").value);
-                data.publications = pub; data.videos=vid;
-                prime = pub*250 + vid*500;
-            }
-
-            await addDoc(collection(db,"weeklyActivities"),{
-                userId: user.uid,
-                role: role,
-                data: data,
-                prime: prime,
-                createdAt: Timestamp.fromDate(new Date())
-            });
-
-            alert("Activité ajoutée !");
-            form.reset();
-            loadHistory();
-        });
+        createRoleTable(role, user.uid);
     });
-
-    loadHistory();
 });
 
-// Fonction pour afficher l'historique de la semaine
-async function loadHistory(){
-    const user = auth.currentUser;
-    if(!user) return;
+async function createRoleTable(role, userId){
+    const tableWrapper = document.createElement("div");
+    tableWrapper.innerHTML = `<h3>${role}</h3>
+        <table id="table-${role}">
+            <thead>
+                <tr>
+                    <th>Données</th>
+                    <th>Prime ($)</th>
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+                <tr>
+                    <td id="inputs-${role}"></td>
+                    <td></td>
+                    <td></td>
+                    <td><button id="add-${role}">Ajouter</button></td>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>`;
+    tablesContainer.appendChild(tableWrapper);
 
-    const startWeek = new Date();
-    const day = startWeek.getDay();
-    const diff = startWeek.getDate() - day + (day===0? -6:1);
-    startWeek.setDate(diff); startWeek.setHours(0,0,0,0);
+    const tbody = tableWrapper.querySelector("tbody");
+    const inputsTd = document.getElementById(`inputs-${role}`);
 
-    const q = query(
-        collection(db,"weeklyActivities"),
-        where("userId","==",user.uid),
-        where("createdAt",">=", Timestamp.fromDate(startWeek)),
-        orderBy("createdAt","asc")
-    );
+    // Création des champs d'entrée selon le rôle
+    if(role==="FTF"){ inputsTd.innerHTML=`Reward: <input type="number" id="input-${role}-reward">`; }
+    else if(role==="JSD"){ inputsTd.innerHTML=`Durée (min): <input type="number" id="input-${role}-duration">`; }
+    else if(role==="SRT" || role==="HC"){ inputsTd.innerHTML=`Heures: <input type="number" id="input-${role}-hours">`; }
+    else if(role==="AFD"){ inputsTd.innerHTML=`Convois: <input type="number" id="input-${role}-convois">`; }
+    else if(role==="COM"){ inputsTd.innerHTML=`Pub: <input type="number" id="input-${role}-pub"> Vidéos: <input type="number" id="input-${role}-vid">`; }
 
+    document.getElementById(`add-${role}`).addEventListener("click", async ()=>{
+        let data={}, prime=0;
+        if(role==="FTF"){ const r=parseFloat(document.getElementById(`input-${role}-reward`).value); data.reward=r; prime=r*0.065; }
+        else if(role==="JSD"){ const m=parseInt(document.getElementById(`input-${role}-duration`).value); data.minutes=m; prime=Math.ceil(m/60)*125; }
+        else if(role==="SRT" || role==="HC"){ const h=parseFloat(document.getElementById(`input-${role}-hours`).value); data.hours=h; prime=h*50; }
+        else if(role==="AFD"){ const c=parseInt(document.getElementById(`input-${role}-convois`).value); data.convois=c; prime=c*500; }
+        else if(role==="COM"){ const p=parseInt(document.getElementById(`input-${role}-pub`).value); const v=parseInt(document.getElementById(`input-${role}-vid`).value); data.publications=p; data.videos=v; prime=p*250+v*500; }
+
+        const docRef = await addDoc(collection(db,"weeklyActivities"),{
+            userId, role, data, prime, createdAt: new Date()
+        });
+
+        addRow(tbody, docRef.id, role, data, prime, new Date());
+    });
+
+    loadRoleActivities(role, userId, tbody);
+}
+
+async function loadRoleActivities(role, userId, tbody){
+    const q = query(collection(db,"weeklyActivities"), where("userId","==",userId), where("role","==",role), orderBy("createdAt","asc"));
     const snapshot = await getDocs(q);
-    historyTableBody.innerHTML="";
     snapshot.forEach(docSnap=>{
         const act = docSnap.data();
-        const date = act.createdAt.toDate().toLocaleString();
-        historyTableBody.innerHTML += `<tr>
-            <td>${act.role}</td>
-            <td>${JSON.stringify(act.data)}</td>
-            <td>${act.prime.toFixed(2)}</td>
-            <td>${date}</td>
-        </tr>`;
+        addRow(tbody, docSnap.id, role, act.data, act.prime, act.createdAt.toDate());
     });
+}
+
+function addRow(tbody, id, role, data, prime, date){
+    const tr = document.createElement("tr");
+    tr.innerHTML=`<td>${JSON.stringify(data)}</td>
+                  <td>${prime.toFixed(2)}</td>
+                  <td>${date.toLocaleString()}</td>
+                  <td><button>Supprimer</button></td>`;
+    tr.querySelector("button").addEventListener("click", async ()=>{
+        await deleteDoc(doc(db,"weeklyActivities",id));
+        tr.remove();
+    });
+    tbody.appendChild(tr);
 }
 </script>
 </body>
