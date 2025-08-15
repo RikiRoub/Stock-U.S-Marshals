@@ -1,383 +1,178 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>USMS – Primes (Agent)</title>
+  <meta charset="UTF-8">
+  <title>Primes USMS</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Firebase v10 (modular) -->
-  <script type="module">
-    // ====== Firebase SDKs ======
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-    import {
-      getAuth, onAuthStateChanged, signInWithEmailAndPassword,
-      createUserWithEmailAndPassword, signOut, updateProfile
-    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
-    import {
-      getFirestore, doc, getDoc, setDoc, updateDoc, addDoc,
-      collection, serverTimestamp, query, where, getDocs, orderBy, limit
-    } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-
-    // ====== CONFIG FIREBASE ======
-    const firebaseConfig = {
-      // TODO: REMPLACE ICI par ta configuration Firebase
-      apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-      authDomain: "gestion-stock-d63d0.firebaseapp.com",
-      projectId: "gestion-stock-d63d0",
-      storageBucket: "gestion-stock-d63d0.firebasestorage.app",
-      messagingSenderId: "865227689174",
-      appId: "1:865227689174:web:213e7f6e44f183c6928d77"
-    };
-
-    // ====== CONSTANTES METIER ======
-    const RATE_FTF_PCT = 0.065;     // 6.5% du wanted
-    const RATE_JSD_PER_AUDIENCE = 125; // $125 / audience
-    const RATE_AFD_PER_CONVOI = 500;   // $500 / convoi
-    const RATE_COM_PUB = 250;          // $250 / publication
-    const RATE_COM_VIDEO = 500;         // $500 / vidéo
-
-    // Secret optionnel pour créer un compte HC au signup (à partager seulement aux HC)
-    const HC_INVITE_CODE = "CHANGE_ME_HC_SECRET"; // <-- change ce code ou laisse vide pour interdire
-
-    // ====== APP INIT ======
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // Helpers
-    const $ = (sel) => document.querySelector(sel);
-    const monthKey = (d = new Date()) =>
-      `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
-
-    // ========= AUTH UI =========
-    async function ensureUserDoc(user, roleChosen) {
-      const uref = doc(db, "users", user.uid);
-      const snap = await getDoc(uref);
-      if (!snap.exists()) {
-        await setDoc(uref, {
-          uid: user.uid,
-          email: user.email,
-          displayName: user.displayName || "",
-          role: roleChosen || "agent",
-          createdAt: serverTimestamp()
-        });
-      }
-      return (await getDoc(uref)).data();
-    }
-
-    async function doSignup(e) {
-      e.preventDefault();
-      const email = $("#email").value.trim();
-      const pass = $("#password").value;
-      const displayName = $("#displayName").value.trim();
-      const role = $("#role").value; // agent ou hc
-      const code = $("#hcCode").value.trim();
-
-      if (role === "hc" && (!HC_INVITE_CODE || code !== HC_INVITE_CODE)) {
-        alert("Code HC invalide.");
-        return;
-      }
-
-      const { user } = await createUserWithEmailAndPassword(auth, email, pass);
-      if (displayName) await updateProfile(user, { displayName });
-      await ensureUserDoc(user, role);
-    }
-
-    async function doSignin(e) {
-      e.preventDefault();
-      const email = $("#email").value.trim();
-      const pass = $("#password").value;
-      await signInWithEmailAndPassword(auth, email, pass);
-    }
-
-    async function doLogout() {
-      await signOut(auth);
-    }
-
-    onAuthStateChanged(auth, async (user) => {
-      if (!user) {
-        $("#auth").classList.remove("hidden");
-        $("#app").classList.add("hidden");
-        return;
-      }
-      $("#auth").classList.add("hidden");
-      $("#app").classList.remove("hidden");
-      const u = await ensureUserDoc(user);
-
-      $("#whoami").textContent = `${u.displayName || u.email} – rôle: ${u.role}`;
-      $("#navHC").classList.toggle("hidden", u.role !== "hc");
-
-      // Charger les paramètres (taux horaires SRT/HC)
-      await loadSettings();
-      // Pré-remplir la période (mois courant)
-      $("#period").value = monthKey();
-      recalc(); // calcule à zéro
-      await loadLastDraft();
-    });
-
-    // ========= CALCULS =========
-    function ceilAudiencesFromHours(hours) {
-      const h = Number(hours) || 0;
-      // 1 audience couvre la 1ère heure ; chaque heure suivante = +1 audience
-      // => nombre d'audiences = ceil(h)
-      return Math.ceil(h);
-    }
-
-    function recalc() {
-      const reward = Number($("#ftfReward").value) || 0;
-      const ftf = reward * RATE_FTF_PCT;
-
-      const jsdHours = Number($("#jsdHours").value) || 0;
-      const jsdExtraCount = Number($("#jsdCount").value) || 0;
-      const audiencesFromHours = ceilAudiencesFromHours(jsdHours);
-      const jsdTotalAudiences = audiencesFromHours + jsdExtraCount;
-      const jsd = jsdTotalAudiences * RATE_JSD_PER_AUDIENCE;
-
-      const srtHours = Number($("#srtHours").value) || 0;
-      const hcHours  = Number($("#hcHours").value) || 0;
-      const srtRate = Number($("#rateSRT").dataset.value) || 0;
-      const hcRate  = Number($("#rateHC").dataset.value) || 0;
-      const srt = srtHours * srtRate;
-      const hc  = hcHours  * hcRate;
-
-      const afdConvoys = Number($("#afdConvoys").value) || 0;
-      const afd = afdConvoys * RATE_AFD_PER_CONVOI;
-
-      const comPub = Number($("#comPub").value) || 0;
-      const comVid = Number($("#comVid").value) || 0;
-      const com = comPub * RATE_COM_PUB + comVid * RATE_COM_VIDEO;
-
-      const total = ftf + jsd + srt + afd + com + hc;
-
-      $("#outFTF").textContent = `$${ftf.toFixed(2)}`;
-      $("#outJSD").textContent = `$${jsd.toFixed(2)} (${jsdTotalAudiences} audience(s))`;
-      $("#outSRT").textContent = `$${srt.toFixed(2)} (${srtHours}h @ $${srtRate}/h)`;
-      $("#outAFD").textContent = `$${afd.toFixed(2)}`;
-      $("#outCOM").textContent = `$${com.toFixed(2)}`;
-      $("#outHC").textContent  = `$${hc.toFixed(2)} (${hcHours}h @ $${hcRate}/h)`;
-      $("#outTOTAL").textContent = `$${total.toFixed(2)}`;
-    }
-
-    // ========= PERSISTENCE =========
-    async function saveEntry() {
-      const user = auth.currentUser;
-      if (!user) return;
-
-      const period = $("#period").value.trim() || monthKey();
-
-      const payload = {
-        uid: user.uid,
-        period,
-        createdAt: serverTimestamp(),
-        status: "unpaid",
-        categories: {
-          FTF: {
-            reward: Number($("#ftfReward").value) || 0,
-            amount: Number($("#outFTF").textContent.replace("$","")) || 0
-          },
-          JSD: {
-            hours: Number($("#jsdHours").value) || 0,
-            extraCount: Number($("#jsdCount").value) || 0,
-            amount: Number($("#outJSD").textContent.replace("$","")) || 0
-          },
-          SRT: {
-            hours: Number($("#srtHours").value) || 0,
-            rate: Number($("#rateSRT").dataset.value) || 0,
-            amount: Number($("#outSRT").textContent.replace("$","")) || 0
-          },
-          AFD: {
-            convoys: Number($("#afdConvoys").value) || 0,
-            amount: Number($("#outAFD").textContent.replace("$","")) || 0
-          },
-          COM: {
-            publications: Number($("#comPub").value) || 0,
-            videos: Number($("#comVid").value) || 0,
-            amount: Number($("#outCOM").textContent.replace("$","")) || 0
-          },
-          HC: {
-            hours: Number($("#hcHours").value) || 0,
-            rate: Number($("#rateHC").dataset.value) || 0,
-            amount: Number($("#outHC").textContent.replace("$","")) || 0
-          }
-        },
-        total: Number($("#outTOTAL").textContent.replace("$","")) || 0,
-        note: $("#note").value.trim()
-      };
-
-      await addDoc(collection(db, "entries"), payload);
-      alert("Entrée enregistrée !");
-      // sauvegarde de brouillon minimal pour confort
-      localStorage.setItem("usms_draft_"+user.uid, JSON.stringify({
-        period: payload.period,
-        ftfReward: $("#ftfReward").value,
-        jsdHours: $("#jsdHours").value,
-        jsdCount: $("#jsdCount").value,
-        srtHours: $("#srtHours").value,
-        afdConvoys: $("#afdConvoys").value,
-        comPub: $("#comPub").value,
-        comVid: $("#comVid").value,
-        hcHours: $("#hcHours").value,
-        note: $("#note").value
-      }));
-    }
-
-    async function loadLastDraft() {
-      const user = auth.currentUser;
-      if (!user) return;
-      const raw = localStorage.getItem("usms_draft_"+user.uid);
-      if (!raw) return;
-      try {
-        const d = JSON.parse(raw);
-        if (d.period) $("#period").value = d.period;
-        $("#ftfReward").value = d.ftfReward || "";
-        $("#jsdHours").value = d.jsdHours || "";
-        $("#jsdCount").value = d.jsdCount || "";
-        $("#srtHours").value = d.srtHours || "";
-        $("#afdConvoys").value = d.afdConvoys || "";
-        $("#comPub").value = d.comPub || "";
-        $("#comVid").value = d.comVid || "";
-        $("#hcHours").value = d.hcHours || "";
-        $("#note").value = d.note || "";
-        recalc();
-      } catch {}
-    }
-
-    // ======== SETTINGS (taux horaires) ========
-    async function loadSettings() {
-      // Document unique
-      const sref = doc(db, "settings", "rates");
-      const snap = await getDoc(sref);
-      const data = snap.exists() ? snap.data() : { rateSRT: 0, rateHC: 0 };
-      $("#rateSRT").textContent = `$${(data.rateSRT||0).toFixed(2)}/h`;
-      $("#rateSRT").dataset.value = data.rateSRT || 0;
-      $("#rateHC").textContent = `$${(data.rateHC||0).toFixed(2)}/h`;
-      $("#rateHC").dataset.value = data.rateHC || 0;
-      recalc();
-    }
-
-    // ======== UI WIRING ========
-    window.addEventListener("DOMContentLoaded", () => {
-      // Auth
-      $("#signin").addEventListener("click", doSignin);
-      $("#signup").addEventListener("click", doSignup);
-      $("#logout").addEventListener("click", doLogout);
-
-      // Inputs -> recalcul
-      ["ftfReward","jsdHours","jsdCount","srtHours","afdConvoys","comPub","comVid","hcHours"]
-        .forEach(id => $("#"+id).addEventListener("input", recalc));
-
-      $("#save").addEventListener("click", saveEntry);
-    });
-  </script>
 </head>
-<body class="bg-slate-50 text-slate-900">
-  <!-- AUTH -->
-  <section id="auth" class="max-w-xl mx-auto mt-10 p-6 bg-white rounded-2xl shadow hidden">
-    <h1 class="text-2xl font-bold mb-4">Connexion / Création de compte</h1>
-    <div class="grid gap-3">
-      <input id="displayName" class="border rounded p-2" placeholder="Pseudo (optionnel)">
-      <input id="email" type="email" class="border rounded p-2" placeholder="Email">
-      <input id="password" type="password" class="border rounded p-2" placeholder="Mot de passe">
-      <div class="flex items-center gap-2">
-        <label class="text-sm">Rôle :</label>
-        <select id="role" class="border rounded p-2">
-          <option value="agent">Agent</option>
-          <option value="hc">HC</option>
-        </select>
-      </div>
-      <input id="hcCode" class="border rounded p-2" placeholder="Code secret HC (si HC)">
-      <div class="flex gap-2">
-        <button id="signin" class="px-4 py-2 rounded-xl bg-slate-800 text-white">Se connecter</button>
-        <button id="signup" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Créer le compte</button>
-      </div>
-      <p class="text-xs text-slate-500">Astuce : le rôle HC nécessite le code secret (défini dans le code).</p>
-    </div>
-  </section>
+<body class="bg-gray-100 p-4">
 
-  <!-- APP -->
-  <section id="app" class="max-w-4xl mx-auto mt-6 p-4 hidden">
-    <header class="flex items-center justify-between mb-4">
+  <!-- Auth -->
+  <div id="auth" class="max-w-md mx-auto bg-white p-4 rounded shadow">
+    <h1 class="text-xl font-bold mb-2">Connexion / Inscription</h1>
+    <input id="displayName" placeholder="Nom affiché" class="border p-2 w-full mb-2">
+    <input id="email" type="email" placeholder="Email" class="border p-2 w-full mb-2">
+    <input id="password" type="password" placeholder="Mot de passe" class="border p-2 w-full mb-2">
+
+    <label>Rôles :</label>
+    <select id="role" multiple class="border p-2 w-full mb-2">
+      <option value="agent">Agent</option>
+      <option value="hc">HC</option>
+    </select>
+    <p class="text-xs text-slate-500">Ctrl/Cmd + clic pour sélectionner plusieurs rôles</p>
+
+    <input id="hcCode" placeholder="Code HC (si HC choisi)" class="border p-2 w-full mb-2">
+    <button id="signupBtn" class="bg-blue-500 text-white p-2 rounded w-full">Créer un compte</button>
+    <button id="loginBtn" class="bg-green-500 text-white p-2 rounded w-full mt-2">Se connecter</button>
+  </div>
+
+  <!-- App -->
+  <div id="app" class="hidden max-w-2xl mx-auto bg-white p-4 rounded shadow">
+    <div class="flex justify-between items-center mb-4">
+      <div id="whoami"></div>
       <div>
-        <h1 class="text-2xl font-bold">USMS – Primes (Agent)</h1>
-        <p id="whoami" class="text-sm text-slate-500"></p>
-      </div>
-      <div class="flex items-center gap-2">
-        <a id="navHC" href="./hc.html" class="hidden px-3 py-2 rounded-xl bg-indigo-600 text-white">Page HC</a>
-        <button id="logout" class="px-3 py-2 rounded-xl bg-slate-800 text-white">Déconnexion</button>
-      </div>
-    </header>
-
-    <div class="bg-white rounded-2xl shadow p-4 mb-4">
-      <label class="text-sm text-slate-600">Période</label>
-      <input id="period" class="border rounded p-2 ml-2" style="width: 140px" placeholder="YYYY-MM">
-    </div>
-
-    <div class="grid md:grid-cols-2 gap-4">
-      <!-- FTF -->
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="font-semibold mb-2">1) FTF</h2>
-        <label class="text-sm block mb-1">Reward (Wanted)</label>
-        <input id="ftfReward" type="number" min="0" step="0.01" class="border rounded p-2 w-full" placeholder="ex: 15000">
-        <p class="mt-2 text-sm">Prime Agent (6.5%) : <span id="outFTF" class="font-semibold">$0.00</span></p>
-      </div>
-
-      <!-- JSD -->
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="font-semibold mb-2">2) JSD</h2>
-        <label class="text-sm block mb-1">Heures d'audiences (total)</label>
-        <input id="jsdHours" type="number" min="0" step="0.25" class="border rounded p-2 w-full" placeholder="ex: 2.5">
-        <label class="text-sm block mt-2 mb-1">+ Audiences supplémentaires (manuelles)</label>
-        <input id="jsdCount" type="number" min="0" step="1" class="border rounded p-2 w-full" placeholder="ex: 1">
-        <p class="mt-2 text-sm">JSD : <span id="outJSD" class="font-semibold">$0.00 (0 audience)</span></p>
-        <p class="text-xs text-slate-500 mt-1">Règle : 1 audience couvre la 1ère heure, chaque heure suivante = +1 audience (arrondi au supérieur).</p>
-      </div>
-
-      <!-- SRT -->
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="font-semibold mb-2">3) SRT (activité)</h2>
-        <p class="text-sm text-slate-600">Taux actuel : <span id="rateSRT" data-value="0">$0.00/h</span></p>
-        <label class="text-sm block mb-1">Heures</label>
-        <input id="srtHours" type="number" min="0" step="0.25" class="border rounded p-2 w-full" placeholder="ex: 3">
-        <p class="mt-2 text-sm">SRT : <span id="outSRT" class="font-semibold">$0.00</span></p>
-      </div>
-
-      <!-- AFD -->
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="font-semibold mb-2">4) AFD</h2>
-        <label class="text-sm block mb-1">Nombre de convois</label>
-        <input id="afdConvoys" type="number" min="0" step="1" class="border rounded p-2 w-full" placeholder="ex: 2">
-        <p class="mt-2 text-sm">AFD : <span id="outAFD" class="font-semibold">$0.00</span></p>
-      </div>
-
-      <!-- COM -->
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="font-semibold mb-2">5) Com</h2>
-        <label class="text-sm block mb-1">Publications</label>
-        <input id="comPub" type="number" min="0" step="1" class="border rounded p-2 w-full" placeholder="ex: 1">
-        <label class="text-sm block mt-2 mb-1">Vidéos</label>
-        <input id="comVid" type="number" min="0" step="1" class="border rounded p-2 w-full" placeholder="ex: 1">
-        <p class="mt-2 text-sm">Com : <span id="outCOM" class="font-semibold">$0.00</span></p>
-      </div>
-
-      <!-- HC -->
-      <div class="bg-white rounded-2xl shadow p-4">
-        <h2 class="font-semibold mb-2">6) HC (activité)</h2>
-        <p class="text-sm text-slate-600">Taux actuel : <span id="rateHC" data-value="0">$0.00/h</span></p>
-        <label class="text-sm block mb-1">Heures</label>
-        <input id="hcHours" type="number" min="0" step="0.25" class="border rounded p-2 w-full" placeholder="ex: 4">
-        <p class="mt-2 text-sm">HC : <span id="outHC" class="font-semibold">$0.00</span></p>
+        <button id="logoutBtn" class="bg-red-500 text-white p-1 px-3 rounded">Déconnexion</button>
+        <a id="navHC" href="hc.html" class="bg-purple-500 text-white p-1 px-3 rounded hidden">Panel HC</a>
       </div>
     </div>
 
-    <div class="bg-white rounded-2xl shadow p-4 mt-4">
-      <label class="text-sm block mb-1">Note (optionnel)</label>
-      <textarea id="note" class="border rounded p-2 w-full" rows="3" placeholder="Infos complémentaires…"></textarea>
+    <h2 class="font-bold mb-2">Entrée des primes</h2>
 
-      <div class="flex items-center justify-between mt-4">
-        <div class="text-lg font-bold">Total : <span id="outTOTAL">$0.00</span></div>
-        <button id="save" class="px-4 py-2 rounded-xl bg-emerald-600 text-white">Enregistrer</button>
-      </div>
-    </div>
-  </section>
+    <label>FTF – Reward du Wanted:</label>
+    <input id="ftfReward" type="number" class="border p-2 w-full mb-2">
+
+    <label>JSD – Nb audiences protégées :</label>
+    <input id="jsdAud" type="number" class="border p-2 w-full mb-2">
+    <label>JSD – Nb heures audiences (1h = 1 audience) :</label>
+    <input id="jsdHours" type="number" class="border p-2 w-full mb-2">
+
+    <label>SRT – Heures activité :</label>
+    <input id="srtHours" type="number" class="border p-2 w-full mb-2">
+
+    <label>AFD – Nb convois :</label>
+    <input id="afdNb" type="number" class="border p-2 w-full mb-2">
+
+    <label>Com – Publications :</label>
+    <input id="comPub" type="number" class="border p-2 w-full mb-2">
+    <label>Com – Vidéos :</label>
+    <input id="comVid" type="number" class="border p-2 w-full mb-2">
+
+    <label>HC – Heures activité :</label>
+    <input id="hcHours" type="number" class="border p-2 w-full mb-2">
+
+    <div class="mt-4 font-bold">Total : <span id="totalPrime">0</span> $</div>
+    <button id="saveBtn" class="bg-blue-600 text-white p-2 mt-4 rounded">Enregistrer</button>
+  </div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updateProfile } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+  authDomain: "gestion-stock-d63d0.firebaseapp.com",
+  projectId: "gestion-stock-d63d0",
+  storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+  messagingSenderId: "865227689174",
+  appId: "1:865227689174:web:213e7f6e44f183c6928d77"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const HC_CODE = "CODE_SECRET_HC";
+
+function $(id) { return document.querySelector(id); }
+
+async function ensureUserDoc(user, rolesChosen) {
+  const ref = doc(db, "users", user.uid);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      uid: user.uid,
+      email: user.email,
+      displayName: user.displayName || "",
+      roles: rolesChosen || ["agent"],
+      createdAt: serverTimestamp()
+    });
+  }
+  return (await getDoc(ref)).data();
+}
+
+$("#signupBtn").onclick = async () => {
+  const email = $("#email").value;
+  const pass = $("#password").value;
+  const displayName = $("#displayName").value;
+  const roles = Array.from($("#role").selectedOptions).map(o => o.value);
+  const code = $("#hcCode").value.trim();
+
+  if (roles.includes("hc") && code !== HC_CODE) {
+    alert("Code HC invalide.");
+    return;
+  }
+
+  const { user } = await createUserWithEmailAndPassword(auth, email, pass);
+  if (displayName) await updateProfile(user, { displayName });
+  await ensureUserDoc(user, roles);
+};
+
+$("#loginBtn").onclick = async () => {
+  await signInWithEmailAndPassword(auth, $("#email").value, $("#password").value);
+};
+
+$("#logoutBtn").onclick = () => signOut(auth);
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    $("#auth").classList.remove("hidden");
+    $("#app").classList.add("hidden");
+    return;
+  }
+  const u = await ensureUserDoc(user);
+  $("#auth").classList.add("hidden");
+  $("#app").classList.remove("hidden");
+  $("#whoami").textContent = `${u.displayName || u.email} – rôles: ${u.roles.join(", ")}`;
+  $("#navHC").classList.toggle("hidden", !u.roles.includes("hc"));
+});
+
+function calcTotal() {
+  const ftf = Number($("#ftfReward").value) * 0.065;
+  const jsd = Number($("#jsdAud").value) * 125 + Math.max(0, Number($("#jsdHours").value) - Number($("#jsdAud").value)) * 125;
+  const srt = Number($("#srtHours").value) * 50;
+  const afd = Number($("#afdNb").value) * 500;
+  const com = Number($("#comPub").value) * 250 + Number($("#comVid").value) * 500;
+  const hc  = Number($("#hcHours").value) * 50;
+  const total = ftf + jsd + srt + afd + com + hc;
+  $("#totalPrime").textContent = total.toFixed(2);
+  return total;
+}
+
+document.querySelectorAll("input").forEach(el => el.addEventListener("input", calcTotal));
+
+$("#saveBtn").onclick = async () => {
+  const total = calcTotal();
+  await addDoc(collection(db, "entries"), {
+    uid: auth.currentUser.uid,
+    displayName: auth.currentUser.displayName || auth.currentUser.email,
+    ftfReward: Number($("#ftfReward").value),
+    jsdAud: Number($("#jsdAud").value),
+    jsdHours: Number($("#jsdHours").value),
+    srtHours: Number($("#srtHours").value),
+    afdNb: Number($("#afdNb").value),
+    comPub: Number($("#comPub").value),
+    comVid: Number($("#comVid").value),
+    hcHours: Number($("#hcHours").value),
+    total,
+    status: "pending",
+    createdAt: serverTimestamp()
+  });
+  alert("Enregistré !");
+};
+</script>
 </body>
 </html>
