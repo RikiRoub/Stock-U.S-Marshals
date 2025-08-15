@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-import { firebaseConfig } from "./firebase-config.js"; // Assure-toi que ce fichier contient ta config Firebase
+import { getFirestore, doc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { firebaseConfig } from "./firebase-config.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -12,31 +12,22 @@ document.getElementById("signup-form").addEventListener("submit", async (e) => {
 
     const email = document.getElementById("email").value.trim();
     const password = document.getElementById("password").value.trim();
-    
-    // Récupérer les rôles sélectionnés (checkboxes ou multiselect)
-    const roleCheckboxes = document.querySelectorAll('input[name="roles"]:checked');
-    const roles = Array.from(roleCheckboxes).map(cb => cb.value);
-
-    if (roles.length === 0) {
-        alert("Veuillez sélectionner au moins un rôle !");
-        return;
-    }
 
     try {
-        // Création du compte Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // Créer le document user dans Firestore avec les rôles
+        // Créer le document Firestore pour cet utilisateur
         await setDoc(doc(db, "users", user.uid), {
             email: email,
-            roles: roles, // tableau de rôles
-            createdAt: new Date()
+            roles: [], // pas de rôle par défaut, tu peux mettre ["AFD"] par exemple
+            date: serverTimestamp(),
+            details: "",
+            valeur: 0
         });
 
-        alert("Compte créé avec succès !");
-        // Rediriger ou réinitialiser le formulaire
-        document.getElementById("signup-form").reset();
+        alert("Compte créé avec succès ! Vous pouvez maintenant vous connecter.");
+        window.location.href = "login.html"; // redirection vers la page login
 
     } catch (error) {
         console.error("Erreur lors de la création du compte :", error);
