@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Gestion des Rôles</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        select { padding: 5px; }
+        button { padding: 5px 10px; cursor: pointer; }
+        @media (max-width: 600px) {
+            table, th, td { font-size: 14px; }
+            select, button { width: 100%; margin: 5px 0; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>Admin - Gestion des Rôles</h1>
+<button onclick="window.location.href='index.html'" style="margin-bottom: 20px;">Retour Accueil</button>
+
+<table>
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>Rôle actuel</th>
+            <th>Modifier rôle</th>
+        </tr>
+    </thead>
+    <tbody id="table-users"></tbody>
+</table>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+// Config Firebase
+const firebaseConfig = {
+    apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+    authDomain: "gestion-stock-d63d0.firebaseapp.com",
+    projectId: "gestion-stock-d63d0",
+    storageBucket: "gestion-stock-d63d0.appspot.com",
+    messagingSenderId: "865227689174",
+    appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+    measurementId: "G-LX4G4FY0ZP"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore(app);
+
+// Vérification rôle admin
+onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+        window.location.href = "login.html";
+        return;
+    }
+    const docRef = doc(db, "users", user.uid);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists() || docSnap.data().role !== "admin") {
+        alert("Accès interdit : page réservée aux administrateurs");
+        window.location.href = "index.html";
+        return;
+    }
+    afficherUtilisateurs();
+});
+
+async function afficherUtilisateurs() {
+    const tbody = document.getElementById("table-users");
+    tbody.innerHTML = "";
+    const querySnapshot = await getDocs(collection(db, "users"));
+    querySnapshot.forEach(userDoc => {
+        const user = userDoc.data();
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${user.email}</td>
+            <td>${user.role}</td>
+            <td>
+                <select onchange="changerRole('${userDoc.id}', this.value)">
+                    <option value="">Sélectionner</option>
+                    <option ${user.role === "USMS" ? "selected" : ""}>USMS</option>
+                    <option ${user.role === "JSD" ? "selected" : ""}>JSD</option>
+                    <option ${user.role === "SRT" ? "selected" : ""}>SRT</option>
+                    <option ${user.role === "AFD" ? "selected" : ""}>AFD</option>
+                    <option ${user.role === "Com" ? "selected" : ""}>Com</option>
+                    <option ${user.role === "HC" ? "selected" : ""}>HC</option>
+                    <option ${user.role === "admin" ? "selected" : ""}>admin</option>
+                </select>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+window.changerRole = async function(uid, nouveauRole) {
+    if (!nouveauRole) return;
+    try {
+        await updateDoc(doc(db, "users", uid), { role: nouveauRole });
+        alert("Rôle mis à jour avec succès !");
+        afficherUtilisateurs();
+    } catch (error) {
+        console.error("Erreur lors de la mise à jour du rôle :", error);
+        alert("Erreur lors de la mise à jour du rôle.");
+    }
+};
+</script>
+
+</body>
+</html>
