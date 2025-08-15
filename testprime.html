@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard Agent - Onglets</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; max-width: 1000px; }
+h1 { margin-bottom: 20px; }
+.tab { overflow: hidden; border-bottom: 1px solid #ccc; }
+.tab button { background-color: inherit; border: none; outline: none; cursor: pointer; padding: 10px 20px; transition: 0.3s; }
+.tab button:hover { background-color: #ddd; }
+.tab button.active { background-color: #ccc; }
+.tabcontent { display: none; padding: 10px 0; }
+form { margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+input, button { padding: 5px; margin: 5px 0; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+th { background-color: #f2f2f2; }
+</style>
+</head>
+<body>
+
+<h1>Dashboard Agent</h1>
+<p id="welcome-msg"></p>
+
+<div class="tab">
+  <button class="tablinks" data-role="ftf">FTF</button>
+  <button class="tablinks" data-role="jsd">JSD</button>
+  <button class="tablinks" data-role="srt">SRT</button>
+  <button class="tablinks" data-role="afd">AFD</button>
+  <button class="tablinks" data-role="com">COM</button>
+  <button class="tablinks" data-role="hc">HC</button>
+</div>
+
+<!-- Sections onglets -->
+<div id="ftf" class="tabcontent">
+  <h2>FTF - Reward</h2>
+  <form id="ftf-form">
+      <input type="number" id="ftf-reward" placeholder="Reward $" required>
+      <button type="submit">Ajouter</button>
+  </form>
+  <p>Prime totale: $<span id="ftf-total-prime">0</span></p>
+  <table id="ftf-table"><thead><tr><th>Reward</th><th>Prime</th><th>Action</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div id="jsd" class="tabcontent">
+  <h2>JSD - Audience Protection</h2>
+  <form id="jsd-form">
+      <input type="number" id="jsd-hours" placeholder="Durée (heures)" required>
+      <button type="submit">Ajouter</button>
+  </form>
+  <p>Prime totale: $<span id="jsd-total-prime">0</span></p>
+  <table id="jsd-table"><thead><tr><th>Heures</th><th>Prime</th><th>Action</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div id="srt" class="tabcontent">
+  <h2>SRT - Prime</h2>
+  <form id="srt-form">
+      <input type="number" id="srt-hours" placeholder="Nombre d'heures" required>
+      <button type="submit">Ajouter</button>
+  </form>
+  <p>Prime totale: $<span id="srt-total-prime">0</span></p>
+  <table id="srt-table"><thead><tr><th>Heures</th><th>Prime</th><th>Action</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div id="afd" class="tabcontent">
+  <h2>AFD - Convois</h2>
+  <form id="afd-form">
+      <input type="number" id="afd-convois" placeholder="Nombre de convois" required>
+      <button type="submit">Ajouter</button>
+  </form>
+  <p>Prime totale: $<span id="afd-total-prime">0</span></p>
+  <table id="afd-table"><thead><tr><th>Convois</th><th>Prime</th><th>Action</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div id="com" class="tabcontent">
+  <h2>COM - Publications / Vidéos</h2>
+  <form id="com-form">
+      <input type="number" id="com-publications" placeholder="Publications" required>
+      <input type="number" id="com-videos" placeholder="Vidéos" required>
+      <button type="submit">Ajouter</button>
+  </form>
+  <p>Prime totale: $<span id="com-total-prime">0</span></p>
+  <table id="com-table"><thead><tr><th>Publications</th><th>Vidéos</th><th>Prime</th><th>Action</th></tr></thead><tbody></tbody></table>
+</div>
+
+<div id="hc" class="tabcontent">
+  <h2>HC - Prime</h2>
+  <form id="hc-form">
+      <input type="number" id="hc-hours" placeholder="Nombre d'heures" required>
+      <button type="submit">Ajouter</button>
+  </form>
+  <p>Prime totale: $<span id="hc-total-prime">0</span></p>
+  <table id="hc-table"><thead><tr><th>Heures</th><th>Prime</th><th>Action</th></tr></thead><tbody></tbody></table>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+const firebaseConfig = {
+    apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+    authDomain: "gestion-stock-d63d0.firebaseapp.com",
+    projectId: "gestion-stock-d63d0",
+    storageBucket: "gestion-stock-d63d0",
+    messagingSenderId: "865227689174",
+    appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+let userActivities = { ftf: [], jsd: [], srt: [], afd: [], com: [], hc: [] };
+const primeFuncs = { ftf: a=>a.reward*0.065, jsd: a=>a.hours*35, srt: a=>a.hours*23, afd: a=>a.convois*20, com: a=>a.publications*10+a.videos*15, hc: a=>a.hours*30 };
+
+// Onglets
+const tablinks = document.querySelectorAll(".tablinks");
+tablinks.forEach(btn => btn.addEventListener("click", ()=>{ openTab(btn.dataset.role); }));
+function openTab(role){ document.querySelectorAll(".tabcontent").forEach(t=>t.style.display="none"); document.getElementById(role).style.display="block"; tablinks.forEach(b=>b.classList.remove("active")); document.querySelector(`.tablinks[data-role="${role}"]`).classList.add("active"); }
+openTab("ftf"); // onglet par défaut
+
+function setupRole(role, calcPrimeFunc){
+    const form = document.getElementById(`${role}-form`);
+    const tbody = document.querySelector(`#${role}-table tbody`);
+    const totalSpan = document.getElementById(`${role}-total-prime`);
+    function render(){
+        tbody.innerHTML="";
+        let total=0;
+        userActivities[role].forEach((act,i)=>{
+            const prime = calcPrimeFunc(act);
+            total += prime;
+            const row = document.createElement("tr");
+            let cols="";
+            if(role==="ftf") cols=`<td>${act.reward}</td><td>${prime.toFixed(2)}</td>`;
+            else if(role==="jsd"||role==="srt"||role==="hc") cols=`<td>${act.hours}</td><td>${prime.toFixed(2)}</td>`;
+            else if(role==="afd") cols=`<td>${act.convois}</td><td>${prime.toFixed(2)}</td>`;
+            else if(role==="com") cols=`<td>${act.publications}</td><td>${act.videos}</td><td>${prime.toFixed(2)}</td>`;
+            row.innerHTML = cols+`<td><button data-index="${i}">Supprimer</button></td>`;
+            tbody.appendChild(row);
+        });
+        totalSpan.innerText=total.toFixed(2);
+        tbody.querySelectorAll("button").forEach(btn=>btn.addEventListener("click", async e=>{
+            const idx=parseInt(e.target.dataset.index);
+            userActivities[role].splice(idx,1);
+            await setDoc(doc(db,"userActivities",auth.currentUser.uid),userActivities,{merge:true});
+            render();
+        }));
+    }
+    form.addEventListener("submit", async e=>{
+        e.preventDefault();
+        const newAct={};
+        if(role==="ftf") newAct.reward=parseFloat(document.getElementById("ftf-reward").value);
+        else if(role==="jsd") newAct.hours=parseFloat(document.getElementById("jsd-hours").value);
+        else if(role==="srt") newAct.hours=parseFloat(document.getElementById("srt-hours").value);
+        else if(role==="afd") newAct.convois=parseInt(document.getElementById("afd-convois").value);
+        else if(role==="com"){ newAct.publications=parseInt(document.getElementById("com-publications").value); newAct.videos=parseInt(document.getElementById("com-videos").value); }
+        else if(role==="hc") newAct.hours=parseFloat(document.getElementById("hc-hours").value);
+        userActivities[role].push(newAct);
+        await setDoc(doc(db,"userActivities",auth.currentUser.uid),userActivities,{merge:true});
+        render();
+        form.reset();
+    });
+    return render;
+}
+
+const renderFTF = setupRole("ftf", primeFuncs.ftf);
+const renderJSD = setupRole("jsd", primeFuncs.jsd);
+const renderSRT = setupRole("srt", primeFuncs.srt);
+const renderAFD = setupRole("afd", primeFuncs.afd);
+const renderCOM = setupRole("com", primeFuncs.com);
+const renderHC = setupRole("hc", primeFuncs.hc);
+
+onAuthStateChanged(auth,user=>{
+    if(!user) return;
+    document.getElementById("welcome-msg").innerText=`Bienvenue ${user.email}`;
+    getDoc(doc(db,"userActivities",user.uid)).then(docSnap=>{ if(docSnap.exists()) userActivities=docSnap.data();
+        renderFTF(); renderJSD(); renderSRT(); renderAFD(); renderCOM(); renderHC();
+    });
+});
+</script>
+</body>
+</html>
