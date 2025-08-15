@@ -2,16 +2,19 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Gestion Saisies Légales</title>
+    <title>Gestion du Stock</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; }
+        nav { margin-bottom: 20px; }
+        nav button { padding: 10px 15px; margin-right: 5px; cursor: pointer; }
+        .tab { display: none; }
+        .tab.active { display: block; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background-color: #f2f2f2; }
-        form { margin-bottom: 20px; }
         input, select { padding: 5px; margin: 5px; }
-        button { padding: 5px 10px; cursor: pointer; }
+        button.submit-btn { margin-top: 5px; }
         @media (max-width: 600px) {
             table, th, td { font-size: 14px; }
             input, select, button { width: 100%; margin: 5px 0; }
@@ -19,160 +22,174 @@
     </style>
 </head>
 <body>
-    <h1>Stock Saisies Légales</h1>
 
-    <form id="form-stock">
-        <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
-        <input type="number" id="quantite" placeholder="Quantité" min="0" required>
-        <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
-        <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
-        <input type="text" id="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
-        <input type="text" id="statut" placeholder="STATUT ACTUEL" required>
-        <input type="text" id="affaires" placeholder="AFFAIRS LIÉE" required>
+<h1>Gestion du Stock</h1>
+<nav>
+    <button onclick="openTab('armeFeu')">Armes à feu</button>
+    <button onclick="openTab('armeBlanche')">Armes blanches</button>
+    <button onclick="openTab('saisieLegale')">Saisie légale</button>
+    <button onclick="openTab('saisieIllegale')">Saisie illégale</button>
+</nav>
 
-        <select id="typeArmes" required>
-            <option value="">TYPE D'ARMES</option>
-            <option>Couteau</option>
-            <option>Poignard</option>
-            <option>Lance</option>
-        </select>
+<!-- Armes à feu -->
+<div id="armeFeu" class="tab active"></div>
 
-        <select id="stockage" required>
-            <option value="">STOCKAGE</option>
-            <option>Armoire</option>
-            <option>Box sécurisé</option>
-            <option>Magasin</option>
-        </select>
+<!-- Armes blanches -->
+<div id="armeBlanche" class="tab"></div>
 
-        <button type="submit">Ajouter</button>
-    </form>
+<!-- Saisie légale -->
+<div id="saisieLegale" class="tab"></div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>N° DE SAISIES</th>
-                <th>ETIQUETTE ARMES</th>
-                <th>Quantité</th>
-                <th>TYPE D'ARMES</th>
-                <th>DATE D'ENTRE SAISIES</th>
-                <th>LIEU DE SAISIE</th>
-                <th>PROVENANCE PRÉSUMÉE</th>
-                <th>STATUT ACTUEL</th>
-                <th>AFFAIRS LIÉE</th>
-                <th>STOCKAGE</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody id="tableau-stock"></tbody>
-    </table>
+<!-- Saisie illégale -->
+<div id="saisieIllegale" class="tab"></div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-            authDomain: "gestion-stock-d63d0.firebaseapp.com",
-            projectId: "gestion-stock-d63d0",
-            storageBucket: "gestion-stock-d63d0.appspot.com",
-            messagingSenderId: "865227689174",
-            appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-            measurementId: "G-LX4G4FY0ZP"
-        };
+const firebaseConfig = {
+    apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+    authDomain: "gestion-stock-d63d0.firebaseapp.com",
+    projectId: "gestion-stock-d63d0",
+    storageBucket: "gestion-stock-d63d0.appspot.com",
+    messagingSenderId: "865227689174",
+    appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+    measurementId: "G-LX4G4FY0ZP"
+};
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const stockCollection = collection(db, "saisie_legale");
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-        let compteur = 1;
+const sections = [
+    {id:'armeFeu', collection:'arme_a_feu', prefix:'AAF'},
+    {id:'armeBlanche', collection:'arme_blanche', prefix:'AB'},
+    {id:'saisieLegale', collection:'saisie_legale', prefix:'SL'},
+    {id:'saisieIllegale', collection:'saisie_illegale', prefix:'SI'}
+];
 
-        async function ajouterArticle(article) {
-            try {
-                await addDoc(stockCollection, article);
-            } catch (error) {
-                console.error("Erreur lors de l'ajout :", error);
-            }
-        }
+function openTab(tabId){
+    sections.forEach(sec => {
+        document.getElementById(sec.id).classList.remove('active');
+    });
+    document.getElementById(tabId).classList.add('active');
+}
 
-        async function supprimer(id) {
-            if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
-            try {
-                await deleteDoc(doc(db, "saisie_legale", id));
-            } catch (error) {
-                console.error("Erreur lors de la suppression :", error);
-            }
-        }
+function creerInterface(section){
+    const container = document.getElementById(section.id);
+    container.innerHTML = `
+        <form id="form-${section.id}">
+            <input type="text" name="nom" placeholder="ETIQUETTE ARMES" required>
+            <input type="number" name="quantite" placeholder="Quantité" min="0" required>
+            <input type="text" name="date" placeholder="DATE D'ENTREE / SAISIE" required>
+            <input type="text" name="lieu" placeholder="LIEU DE SAISIE" required>
+            <input type="text" name="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
+            <input type="text" name="statut" placeholder="STATUT ACTUEL" required>
+            <input type="text" name="affaires" placeholder="AFFAIRES LIÉE" required>
+            <select name="typeArmes" required>
+                <option value="">TYPE D'ARMES</option>
+                <option>Couteau</option>
+                <option>Poignard</option>
+                <option>Lance</option>
+                <option>Pistolet</option>
+                <option>Fusil</option>
+            </select>
+            <select name="stockage" required>
+                <option value="">STOCKAGE</option>
+                <option>Armoire</option>
+                <option>Box sécurisé</option>
+                <option>Magasin</option>
+            </select>
+            <button class="submit-btn">Ajouter</button>
+        </form>
+        <table>
+            <thead>
+                <tr>
+                    <th>N° DE SAISIE</th><th>ETIQUETTE</th><th>Quantité</th><th>TYPE D'ARMES</th>
+                    <th>DATE</th><th>LIEU</th><th>PROVENANCE</th><th>STATUT</th>
+                    <th>AFFAIRE</th><th>STOCKAGE</th><th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="table-${section.id}"></tbody>
+        </table>
+    `;
 
-        function afficherStock() {
-            const tbody = document.getElementById("tableau-stock");
-            onSnapshot(stockCollection, (snapshot) => {
-                tbody.innerHTML = "";
-                compteur = 1;
-                snapshot.forEach(docSnap => {
-                    const item = docSnap.data();
-                    const numeroSaisie = "SL" + compteur.toString().padStart(6, "0");
-                    const row = document.createElement("tr");
+    const stockCollection = collection(db, section.collection);
+    const tbody = document.getElementById(`table-${section.id}`);
+    let compteur = 1;
 
-                    row.innerHTML = `
-                        <td>${numeroSaisie}</td>
-                        <td>${item.nom}</td>
-                        <td>${item.quantite}</td>
-                        <td>
-                            <select onchange="modifierSelect('${docSnap.id}','typeArmes', this.value)">
-                                <option ${item.typeArmes === "Couteau" ? "selected" : ""}>Couteau</option>
-                                <option ${item.typeArmes === "Poignard" ? "selected" : ""}>Poignard</option>
-                                <option ${item.typeArmes === "Lance" ? "selected" : ""}>Lance</option>
-                            </select>
-                        </td>
-                        <td>${item.date}</td>
-                        <td>${item.lieu}</td>
-                        <td>${item.provenance}</td>
-                        <td>${item.statut}</td>
-                        <td>${item.affaires}</td>
-                        <td>
-                            <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
-                                <option ${item.stockage === "Armoire" ? "selected" : ""}>Armoire</option>
-                                <option ${item.stockage === "Box sécurisé" ? "selected" : ""}>Box sécurisé</option>
-                                <option ${item.stockage === "Magasin" ? "selected" : ""}>Magasin</option>
-                            </select>
-                        </td>
-                        <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
-                    `;
-                    tbody.appendChild(row);
-                    compteur++;
-                });
-            });
-        }
+    async function ajouterArticle(article){
+        try { await addDoc(stockCollection, article); } 
+        catch(e){ console.error(e); }
+    }
 
-        async function modifierSelect(id, champ, valeur) {
-            try {
-                const docRef = doc(db, "saisie_legale", id);
-                await updateDoc(docRef, { [champ]: valeur });
-            } catch (error) {
-                console.error("Erreur lors de la modification :", error);
-            }
-        }
-        window.modifierSelect = modifierSelect;
+    async function supprimer(id){
+        if(!confirm("Supprimer cet article ?")) return;
+        await deleteDoc(doc(db, section.collection, id));
+    }
+    window.supprimer = supprimer;
 
-        document.getElementById("form-stock").addEventListener("submit", function(e) {
-            e.preventDefault();
-            const article = {
-                nom: document.getElementById("nom").value.trim(),
-                quantite: parseInt(document.getElementById("quantite").value, 10),
-                date: document.getElementById("date").value.trim(),
-                lieu: document.getElementById("lieu").value.trim(),
-                provenance: document.getElementById("provenance").value.trim(),
-                statut: document.getElementById("statut").value.trim(),
-                affaires: document.getElementById("affaires").value.trim(),
-                typeArmes: document.getElementById("typeArmes").value,
-                stockage: document.getElementById("stockage").value
-            };
-            ajouterArticle(article);
-            this.reset();
+    async function modifierSelect(id, champ, valeur){
+        await updateDoc(doc(db, section.collection, id), { [champ]: valeur });
+    }
+    window.modifierSelect = modifierSelect;
+
+    onSnapshot(stockCollection, snapshot=>{
+        tbody.innerHTML = "";
+        compteur=1;
+        snapshot.forEach(docSnap=>{
+            const item = docSnap.data();
+            const numero = section.prefix + compteur.toString().padStart(6,'0');
+            const row = document.createElement("tr");
+            row.innerHTML = `
+                <td>${numero}</td>
+                <td>${item.nom}</td>
+                <td>${item.quantite}</td>
+                <td>
+                    <select onchange="modifierSelect('${docSnap.id}','typeArmes',this.value)">
+                        <option ${item.typeArmes==="Couteau"?"selected":""}>Couteau</option>
+                        <option ${item.typeArmes==="Poignard"?"selected":""}>Poignard</option>
+                        <option ${item.typeArmes==="Lance"?"selected":""}>Lance</option>
+                        <option ${item.typeArmes==="Pistolet"?"selected":""}>Pistolet</option>
+                        <option ${item.typeArmes==="Fusil"?"selected":""}>Fusil</option>
+                    </select>
+                </td>
+                <td>${item.date}</td><td>${item.lieu}</td><td>${item.provenance}</td>
+                <td>${item.statut}</td><td>${item.affaires}</td>
+                <td>
+                    <select onchange="modifierSelect('${docSnap.id}','stockage',this.value)">
+                        <option ${item.stockage==="Armoire"?"selected":""}>Armoire</option>
+                        <option ${item.stockage==="Box sécurisé"?"selected":""}>Box sécurisé</option>
+                        <option ${item.stockage==="Magasin"?"selected":""}>Magasin</option>
+                    </select>
+                </td>
+                <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
+            `;
+            tbody.appendChild(row);
+            compteur++;
         });
+    });
 
-        afficherStock();
-        window.supprimer = supprimer;
-    </script>
+    document.getElementById(`form-${section.id}`).addEventListener("submit", e=>{
+        e.preventDefault();
+        const f = e.target;
+        const article = {
+            nom: f.nom.value.trim(),
+            quantite: parseInt(f.quantite.value,10),
+            date: f.date.value.trim(),
+            lieu: f.lieu.value.trim(),
+            provenance: f.provenance.value.trim(),
+            statut: f.statut.value.trim(),
+            affaires: f.affaires.value.trim(),
+            typeArmes: f.typeArmes.value,
+            stockage: f.stockage.value
+        };
+        ajouterArticle(article);
+        f.reset();
+    });
+}
+
+// Initialiser toutes les sections
+sections.forEach(creerInterface);
+</script>
 </body>
 </html>
