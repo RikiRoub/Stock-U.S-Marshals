@@ -53,34 +53,59 @@
         </tbody>
     </table>
 
-    <script>
-        let stock = JSON.parse(localStorage.getItem("stock")) || [];
+    <!-- Firebase SDKs -->
+    <script type="module">
+        // Import Firebase functions
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-        function afficherStock() {
+        // Config Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+            authDomain: "gestion-stock-d63d0.firebaseapp.com",
+            projectId: "gestion-stock-d63d0",
+            storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+            messagingSenderId: "865227689174",
+            appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+            measurementId: "G-LX4G4FY0ZP"
+        };
+
+        // Initialisation
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // Référence à la collection "stock"
+        const stockCollection = collection(db, "stock");
+
+        // Ajouter un article
+        async function ajouterArticle(nom, quantite) {
+            await addDoc(stockCollection, { nom, quantite });
+            afficherStock();
+        }
+
+        // Supprimer un article
+        async function supprimer(id) {
+            await deleteDoc(doc(db, "stock", id));
+            afficherStock();
+        }
+
+        // Afficher le stock
+        async function afficherStock() {
             const tbody = document.getElementById("tableau-stock");
             tbody.innerHTML = "";
-            stock.forEach((item, index) => {
+            const snapshot = await getDocs(stockCollection);
+            snapshot.forEach(docSnap => {
+                const item = docSnap.data();
                 const row = `<tr>
                     <td>${item.nom}</td>
                     <td>${item.quantite}</td>
-                    <td><button onclick="supprimer(${index})">Supprimer</button></td>
+                    <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
                 </tr>`;
                 tbody.innerHTML += row;
             });
         }
 
-        function ajouterArticle(nom, quantite) {
-            stock.push({ nom, quantite });
-            localStorage.setItem("stock", JSON.stringify(stock));
-            afficherStock();
-        }
-
-        function supprimer(index) {
-            stock.splice(index, 1);
-            localStorage.setItem("stock", JSON.stringify(stock));
-            afficherStock();
-        }
-
+        // Gestion du formulaire
         document.getElementById("form-stock").addEventListener("submit", function(e) {
             e.preventDefault();
             const nom = document.getElementById("nom").value;
@@ -89,7 +114,11 @@
             document.getElementById("form-stock").reset();
         });
 
+        // Charger les données au départ
         afficherStock();
+
+        // Rendre les fonctions globales pour le HTML
+        window.supprimer = supprimer;
     </script>
 </body>
 </html>
