@@ -6,69 +6,79 @@
 </head>
 <body>
     <h2>Connexion</h2>
-    <form id="loginForm">
-        <input type="email" id="email" placeholder="Email" required><br><br>
-        <input type="password" id="password" placeholder="Mot de passe" required><br><br>
+    <form id="login-form">
+        <label>Email :</label>
+        <input type="email" id="email" required><br><br>
+        <label>Mot de passe :</label>
+        <input type="password" id="password" required><br><br>
         <button type="submit">Se connecter</button>
     </form>
 
-    <p id="message"></p>
-
     <script type="module">
-        // Import Firebase
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-        // ⚠️ Mets ici ta config Firebase
+        // Configuration Firebase – remplace par tes infos réelles
         const firebaseConfig = {
-          apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-          authDomain: "gestion-stock-d63d0.firebaseapp.com",
-          projectId: "gestion-stock-d63d0",
-          storageBucket: "gestion-stock-d63d0.firebasestorage.app",
-          messagingSenderId: "865227689174",
-          appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+            apiKey: "TA_CLE_API",
+            authDomain: "TON_PROJET.firebaseapp.com",
+            projectId: "TON_PROJET",
+            storageBucket: "TON_PROJET.appspot.com",
+            messagingSenderId: "TON_MESSAGING_ID",
+            appId: "TON_APP_ID"
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        document.getElementById("loginForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
+        const loginForm = document.getElementById("login-form");
 
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
-            const message = document.getElementById("message");
 
             try {
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // Vérifie le rôle dans Firestore
-                const docRef = doc(db, "users", user.uid);
-                const docSnap = await getDoc(docRef);
-
-                if (docSnap.exists()) {
-                    const role = docSnap.data().role;
-
-                    // Redirection selon rôle
-                    if (role === "ADMIN") {
-                        window.location.href = "admin.html";
-                    } else if (role === "AFD") {
-                        window.location.href = "armes_a_feu.html";
-                    } else if (role === "USMS") {
-                        window.location.href = "usms.html";
-                    } else if (role === "AB") {
-                        window.location.href = "arme_blanche.html";
-                    } else {
-                        message.textContent = "Aucun accès défini pour ce rôle.";
-                    }
-                } else {
-                    message.textContent = "Utilisateur sans rôle attribué.";
+                // Récupérer le document utilisateur
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (!userDoc.exists()) {
+                    alert("Utilisateur introuvable !");
+                    return;
                 }
+
+                const userData = userDoc.data();
+                const roles = userData.roles || [];
+
+                if (roles.length === 0) {
+                    alert("Utilisateur sans rôle attribué !");
+                    return;
+                }
+
+                // Redirection selon rôle principal (ou afficher un menu)
+                if (roles.includes("AFD")) {
+                    window.location.href = "armes_a_feu.html";
+                } else if (roles.includes("USMS")) {
+                    window.location.href = "ftf.html";
+                } else if (roles.includes("JSD")) {
+                    window.location.href = "jsd.html";
+                } else if (roles.includes("SRT")) {
+                    window.location.href = "srt.html";
+                } else if (roles.includes("Com")) {
+                    window.location.href = "com.html";
+                } else if (roles.includes("HC")) {
+                    window.location.href = "hc.html";
+                } else {
+                    alert("Rôle non reconnu !");
+                }
+
             } catch (error) {
-                message.textContent = "Erreur : " + error.message;
+                console.error("Erreur connexion :", error);
+                alert("Erreur : " + error.message);
             }
         });
     </script>
