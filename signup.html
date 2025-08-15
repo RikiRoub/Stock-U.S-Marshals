@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Inscription Utilisateur</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 50px; }
+        form { max-width: 400px; margin: auto; }
+        input, select, button { width: 100%; padding: 10px; margin: 10px 0; }
+        button { cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Créer un compte</h1>
+    <form id="signup-form">
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Mot de passe" required>
+        <select id="role" required>
+            <option value="">Sélectionnez un rôle</option>
+            <option value="ADMIN">ADMIN</option>
+            <option value="AFD">AFD</option>
+            <option value="USMS">USMS</option>
+            <option value="FTF">FTF</option>
+            <option value="JSD">JSD</option>
+            <option value="SRT">SRT</option>
+            <option value="COM">COM</option>
+            <option value="HC">HC</option>
+        </select>
+        <button type="submit">Créer le compte</button>
+    </form>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+        // Config Firebase
+        const firebaseConfig = {
+        apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+        authDomain: "gestion-stock-d63d0.firebaseapp.com",
+        projectId: "gestion-stock-d63d0",
+        storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+        messagingSenderId: "865227689174",
+        appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        document.getElementById("signup-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value.trim();
+            const role = document.getElementById("role").value;
+
+            if (!role) {
+                alert("Veuillez sélectionner un rôle.");
+                return;
+            }
+
+            try {
+                // Créer l'utilisateur
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const uid = userCredential.user.uid;
+
+                // Créer le document utilisateur avec le rôle
+                await setDoc(doc(db, "users", uid), {
+                    email: email,
+                    role: role,
+                    dateCreated: new Date()
+                });
+
+                alert(`Compte créé avec succès pour ${email} avec le rôle ${role}`);
+                document.getElementById("signup-form").reset();
+            } catch (error) {
+                console.error(error);
+                alert("Erreur : " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
