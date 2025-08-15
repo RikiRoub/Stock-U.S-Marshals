@@ -96,7 +96,15 @@ onAuthStateChanged(auth, async user=>{
 
     // Vérification du rôle HC
     const roleSnap = await getDoc(doc(db,"roles",user.uid));
-    const userRole = roleSnap.exists() ? roleSnap.data().role?.toLowerCase().trim() : null;
+    let userRole = null;
+
+    if(roleSnap.exists()) {
+        userRole = roleSnap.data().role;
+        console.log("Rôle récupéré :", userRole); // debug
+        if(typeof userRole === "string") {
+            userRole = userRole.toLowerCase().trim(); // normalisation
+        }
+    }
 
     if(userRole !== "hc"){
         document.body.innerHTML="<h2>Accès réservé aux utilisateurs HC.</h2>";
