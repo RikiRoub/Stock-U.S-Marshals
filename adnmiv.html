@@ -5,84 +5,90 @@
     <title>Admin - Gestion des rôles</title>
 </head>
 <body>
-    <h2>Gestion des rôles des utilisateurs</h2>
-    <form id="role-form">
+    <h2>Gestion des rôles utilisateurs</h2>
+
+    <form id="search-user-form">
         <label>Email de l'utilisateur :</label>
-        <input type="email" id="user-email" required><br><br>
-
-        <label>Rôles à attribuer :</label><br>
-        <input type="checkbox" id="afd" value="AFD"> AFD<br>
-        <input type="checkbox" id="usms" value="USMS"> USMS<br>
-        <input type="checkbox" id="jsd" value="JSD"> JSD<br>
-        <input type="checkbox" id="srt" value="SRT"> SRT<br>
-        <input type="checkbox" id="com" value="Com"> Com<br>
-        <input type="checkbox" id="hc" value="HC"> HC<br><br>
-
-        <button type="submit">Attribuer les rôles</button>
+        <input type="email" id="user-email" required>
+        <button type="submit">Chercher utilisateur</button>
     </form>
+
+    <div id="user-section" style="display:none;">
+        <h3>Attribuer des rôles</h3>
+        <p id="user-info"></p>
+        <label><input type="checkbox" value="AFD"> AFD</label><br>
+        <label><input type="checkbox" value="USMS"> USMS</label><br>
+        <label><input type="checkbox" value="JSD"> JSD</label><br>
+        <label><input type="checkbox" value="SRT"> SRT</label><br>
+        <label><input type="checkbox" value="COM"> COM</label><br>
+        <label><input type="checkbox" value="HC"> HC</label><br>
+        <button id="save-roles-btn">Enregistrer les rôles</button>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
-        import { getAuth, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
-        import { getFirestore, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+        import { getAuth, getUserByEmail } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-        // Configuration Firebase
         const firebaseConfig = {
-            apiKey: "TA_CLE_API",
-            authDomain: "TON_PROJET.firebaseapp.com",
-            projectId: "TON_PROJET",
-            storageBucket: "TON_PROJET.appspot.com",
-            messagingSenderId: "TON_MESSAGING_ID",
-            appId: "TON_APP_ID"
+          apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+          authDomain: "gestion-stock-d63d0.firebaseapp.com",
+          projectId: "gestion-stock-d63d0",
+          storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+          messagingSenderId: "865227689174",
+          appId: "1:865227689174:web:213e7f6e44f183c6928d77",
         };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const roleForm = document.getElementById("role-form");
+        const searchForm = document.getElementById("search-user-form");
+        const userSection = document.getElementById("user-section");
+        const userInfo = document.getElementById("user-info");
+        const saveBtn = document.getElementById("save-roles-btn");
 
-        roleForm.addEventListener("submit", async (e) => {
+        let currentUserDocRef = null;
+
+        searchForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             const email = document.getElementById("user-email").value;
-            const rolesToAdd = [];
-
-            if(document.getElementById("afd").checked) rolesToAdd.push("AFD");
-            if(document.getElementById("usms").checked) rolesToAdd.push("USMS");
-            if(document.getElementById("jsd").checked) rolesToAdd.push("JSD");
-            if(document.getElementById("srt").checked) rolesToAdd.push("SRT");
-            if(document.getElementById("com").checked) rolesToAdd.push("Com");
-            if(document.getElementById("hc").checked) rolesToAdd.push("HC");
 
             try {
-                // Vérifier que l'utilisateur existe
-                const methods = await fetchSignInMethodsForEmail(auth, email);
-                if(methods.length === 0) {
-                    alert("Utilisateur non trouvé !");
+                // Recherche de l'utilisateur dans Firestore
+                const usersSnapshot = await getDoc(doc(db, "users", email));
+                if (!usersSnapshot.exists()) {
+                    alert("Utilisateur non trouvé.");
                     return;
                 }
 
-                // Récupérer le doc de l'utilisateur
-                const usersSnapshot = await getDoc(doc(db, "users", email));
-                const userRef = doc(db, "users", email);
+                currentUserDocRef = usersSnapshot.ref;
+                const data = usersSnapshot.data();
+                userInfo.textContent = `Utilisateur : ${email} | Rôles actuels : ${data.roles ? data.roles.join(", ") : "Aucun"}`;
+                userSection.style.display = "block";
 
-                // Si doc n'existe pas, créer avec les rôles
-                const userDoc = await getDoc(userRef);
-                if (!userDoc.exists()) {
-                    await updateDoc(userRef, {
-                        roles: rolesToAdd
-                    });
-                    alert("Rôles attribués avec succès !");
-                } else {
-                    const existingRoles = userDoc.data().roles || [];
-                    const newRoles = Array.from(new Set([...existingRoles, ...rolesToAdd]));
-                    await updateDoc(userRef, { roles: newRoles });
-                    alert("Rôles mis à jour avec succès !");
-                }
+                // Cocher les cases correspondant aux rôles existants
+                document.querySelectorAll('#user-section input[type=checkbox]').forEach(cb => {
+                    cb.checked = data.roles ? data.roles.includes(cb.value) : false;
+                });
 
             } catch (error) {
                 console.error(error);
                 alert("Erreur : " + error.message);
+            }
+        });
+
+        saveBtn.addEventListener("click", async () => {
+            if (!currentUserDocRef) return;
+
+            const roles = Array.from(document.querySelectorAll('#user-section input[type=checkbox]:checked')).map(cb => cb.value);
+
+            try {
+                await updateDoc(currentUserDocRef, { roles });
+                alert("Rôles mis à jour !");
+            } catch (error) {
+                console.error(error);
+                alert("Erreur lors de la mise à jour des rôles : " + error.message);
             }
         });
     </script>
