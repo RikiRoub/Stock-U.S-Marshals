@@ -7,40 +7,12 @@
 <body>
     <h1>Connexion</h1>
     <form id="loginForm">
-        <input type="email" id="email" placeholder="Email" required>
-        <input type="password" id="password" placeholder="Mot de passe" required>
+        <input type="email" id="email" placeholder="Email" required><br>
+        <input type="password" id="password" placeholder="Mot de passe" required><br>
         <button type="submit">Se connecter</button>
     </form>
+    <p id="error" style="color:red;"></p>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-
-        const firebaseConfig = {
-            apiKey: "TA_CLE_API",
-            authDomain: "TON_PROJET.firebaseapp.com",
-            projectId: "TON_PROJET",
-            storageBucket: "TON_PROJET.appspot.com",
-            messagingSenderId: "TON_PROJET",
-            appId: "TON_PROJET",
-            measurementId: "TON_PROJET"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
-        document.getElementById("loginForm").addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-
-            try {
-                await signInWithEmailAndPassword(auth, email, password);
-                window.location.href = "index.html";
-            } catch (error) {
-                alert("Erreur de connexion : " + error.message);
-            }
-        });
-    </script>
+    <script type="module" src="js/login.js"></script>
 </body>
 </html>
