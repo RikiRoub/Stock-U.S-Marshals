@@ -57,7 +57,7 @@
     <script type="module">
         // Import Firebase functions
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         // Config Firebase
         const firebaseConfig = {
@@ -70,7 +70,7 @@
             measurementId: "G-LX4G4FY0ZP"
         };
 
-        // Initialisation
+        // Initialisation Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
 
@@ -80,28 +80,27 @@
         // Ajouter un article
         async function ajouterArticle(nom, quantite) {
             await addDoc(stockCollection, { nom, quantite });
-            afficherStock();
         }
 
         // Supprimer un article
         async function supprimer(id) {
             await deleteDoc(doc(db, "stock", id));
-            afficherStock();
         }
 
-        // Afficher le stock
-        async function afficherStock() {
+        // Afficher le stock en temps réel
+        function afficherStock() {
             const tbody = document.getElementById("tableau-stock");
-            tbody.innerHTML = "";
-            const snapshot = await getDocs(stockCollection);
-            snapshot.forEach(docSnap => {
-                const item = docSnap.data();
-                const row = `<tr>
-                    <td>${item.nom}</td>
-                    <td>${item.quantite}</td>
-                    <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
-                </tr>`;
-                tbody.innerHTML += row;
+            onSnapshot(stockCollection, (snapshot) => {
+                tbody.innerHTML = "";
+                snapshot.forEach(docSnap => {
+                    const item = docSnap.data();
+                    const row = `<tr>
+                        <td>${item.nom}</td>
+                        <td>${item.quantite}</td>
+                        <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
+                    </tr>`;
+                    tbody.innerHTML += row;
+                });
             });
         }
 
@@ -114,10 +113,10 @@
             document.getElementById("form-stock").reset();
         });
 
-        // Charger les données au départ
+        // Charger et écouter les données
         afficherStock();
 
-        // Rendre les fonctions globales pour le HTML
+        // Rendre la fonction supprimer accessible globalement
         window.supprimer = supprimer;
     </script>
 </body>
