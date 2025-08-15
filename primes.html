@@ -1,77 +1,168 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Enregistrement Activités USMS</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-body { font-family: Arial; margin: 20px; }
-input, select, button { padding: 5px; margin: 5px; }
-</style>
+    <meta charset="UTF-8">
+    <title>Dashboard Agent - Primes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; max-width: 900px; }
+        h2 { margin-top: 30px; }
+        form { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        input, select, button { padding: 5px; margin: 5px 0; }
+        .hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+    </style>
 </head>
 <body>
-<h1>Enregistrement des activités</h1>
 
-<label>Utilisateur:</label>
-<input type="text" id="user-name" placeholder="Nom de l'agent">
-<label>Rôle:</label>
-<select id="role">
-    <option value="FTF">FTF</option>
-    <option value="JSD">JSD</option>
-    <option value="SRT">SRT</option>
-    <option value="AFD">AFD</option>
-    <option value="COM">COM</option>
-    <option value="HC">HC</option>
-</select>
+<h1>Dashboard Agent</h1>
+<p id="welcome-msg"></p>
 
-<div id="details-container"></div>
-<button id="add-activity">Ajouter activité</button>
+<!-- FTF Section -->
+<div id="ftf-section" class="hidden">
+    <h2>FTF - Saisir Reward</h2>
+    <form id="ftf-form">
+        <input type="number" id="ftf-reward" placeholder="Reward Wanted $" required>
+        <button type="submit">Calculer Prime</button>
+    </form>
+    <p>Prime calculée: $<span id="ftf-prime">0</span></p>
+</div>
+
+<!-- JSD Section -->
+<div id="jsd-section" class="hidden">
+    <h2>JSD - Audience Protection</h2>
+    <form id="jsd-form">
+        <input type="number" id="jsd-audience-hours" placeholder="Durée de l'audience (heures)" required>
+        <button type="submit">Calculer Prime</button>
+    </form>
+    <p>Prime de la semaine: $<span id="jsd-prime">0</span></p>
+</div>
+
+<!-- SRT Section -->
+<div id="srt-section" class="hidden">
+    <h2>SRT - Prime d'activité</h2>
+    <form id="srt-form">
+        <input type="number" id="srt-hours" placeholder="Nombre d'heures" required>
+        <button type="submit">Calculer Prime</button>
+    </form>
+    <p>Prime de la semaine: $<span id="srt-prime">0</span></p>
+</div>
+
+<!-- AFD Section -->
+<div id="afd-section" class="hidden">
+    <h2>AFD - Convois</h2>
+    <form id="afd-form">
+        <input type="number" id="afd-convois" placeholder="Nombre de convois" required>
+        <button type="submit">Calculer Prime</button>
+    </form>
+    <p>Prime de la semaine: $<span id="afd-prime">0</span></p>
+</div>
+
+<!-- COM Section -->
+<div id="com-section" class="hidden">
+    <h2>COM - Publications / Vidéos</h2>
+    <form id="com-form">
+        <input type="number" id="com-publications" placeholder="Nombre de publications" required>
+        <input type="number" id="com-videos" placeholder="Nombre de vidéos" required>
+        <button type="submit">Calculer Prime</button>
+    </form>
+    <p>Prime de la semaine: $<span id="com-prime">0</span></p>
+</div>
+
+<!-- HC Section -->
+<div id="hc-section" class="hidden">
+    <h2>HC - Prime d'activité</h2>
+    <form id="hc-form">
+        <input type="number" id="hc-hours" placeholder="Nombre d'heures" required>
+        <button type="submit">Calculer Prime</button>
+    </form>
+    <p>Prime de la semaine: $<span id="hc-prime">0</span></p>
+</div>
 
 <script type="module">
-import { db } from "./firebase.js";
-import { collection, addDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-const roleSelect = document.getElementById("role");
-const detailsContainer = document.getElementById("details-container");
+    const firebaseConfig = {
+        apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+        authDomain: "gestion-stock-d63d0.firebaseapp.com",
+        projectId: "gestion-stock-d63d0",
+        storageBucket: "gestion-stock-d63d0.appspot.com",
+        messagingSenderId: "865227689174",
+        appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+    };
 
-function updateDetailsForm() {
-    const role = roleSelect.value;
-    detailsContainer.innerHTML = "";
-    if(role === "FTF"){
-        detailsContainer.innerHTML = `<label>Reward Wanted:</label><input type="number" id="reward" min="0">`;
-    } else if(role === "JSD"){
-        detailsContainer.innerHTML = `<label>Durée audiences (heures, séparées par ,):</label><input type="text" id="audiences">`;
-    } else if(role === "SRT" || role === "HC"){
-        detailsContainer.innerHTML = `<label>Heures travaillées:</label><input type="number" id="hours" min="0">`;
-    } else if(role === "AFD"){
-        detailsContainer.innerHTML = `<label>Nombre de convois:</label><input type="number" id="convois" min="0">`;
-    } else if(role === "COM"){
-        detailsContainer.innerHTML = `<label>Publications:</label><input type="number" id="publications" min="0">`;
-        detailsContainer.innerHTML += `<label>Vidéos:</label><input type="number" id="videos" min="0">`;
-    }
-}
-roleSelect.addEventListener("change", updateDetailsForm);
-updateDetailsForm();
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-document.getElementById("add-activity").addEventListener("click", async () => {
-    const name = document.getElementById("user-name").value;
-    const role = roleSelect.value;
-    let details = {};
+    let currentRoles = [];
 
-    if(role === "FTF") details.reward = parseFloat(document.getElementById("reward").value || 0);
-    else if(role === "JSD") details.audiences = document.getElementById("audiences").value.split(",").map(h => parseFloat(h));
-    else if(role === "SRT" || role === "HC") details.hours = parseFloat(document.getElementById("hours").value || 0);
-    else if(role === "AFD") details.convois = parseInt(document.getElementById("convois").value || 0);
-    else if(role === "COM") details.publications = parseInt(document.getElementById("publications").value || 0),
-         details.videos = parseInt(document.getElementById("videos").value || 0);
+    onAuthStateChanged(auth, async (user) => {
+        if (!user) { window.location.href = "login.html"; return; }
+        const docRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) { alert("Utilisateur introuvable"); window.location.href="login.html"; return; }
+        currentRoles = docSnap.data().roles || [];
+        document.getElementById("welcome-msg").innerText = `Connecté en tant que ${user.email} - Rôles: ${currentRoles.join(", ")}`;
 
-    const now = new Date();
-    const weekStart = new Date(now.setDate(now.getDate() - now.getDay())); 
-    const weekEnd = new Date(now.setDate(now.getDate() - now.getDay() + 6));
+        // Afficher uniquement les sections selon les rôles
+        if (currentRoles.includes("FTF")) document.getElementById("ftf-section").classList.remove("hidden");
+        if (currentRoles.includes("JSD")) document.getElementById("jsd-section").classList.remove("hidden");
+        if (currentRoles.includes("SRT")) document.getElementById("srt-section").classList.remove("hidden");
+        if (currentRoles.includes("AFD")) document.getElementById("afd-section").classList.remove("hidden");
+        if (currentRoles.includes("COM")) document.getElementById("com-section").classList.remove("hidden");
+        if (currentRoles.includes("HC")) document.getElementById("hc-section").classList.remove("hidden");
+    });
 
-    await addDoc(collection(db, "week_activities"), {name, role, details, weekStart, weekEnd});
-    alert("Activité enregistrée !");
-});
+    // Fonctions de calcul des primes
+    document.getElementById("ftf-form").addEventListener("submit", (e)=>{
+        e.preventDefault();
+        const reward = parseFloat(document.getElementById("ftf-reward").value);
+        const prime = reward * 0.065;
+        document.getElementById("ftf-prime").innerText = prime.toFixed(2);
+    });
+
+    document.getElementById("jsd-form").addEventListener("submit", (e)=>{
+        e.preventDefault();
+        let hours = parseFloat(document.getElementById("jsd-audience-hours").value);
+        let prime = 125; // 1ère audience
+        if(hours > 1) prime += 125 * Math.floor(hours - 1); // chaque heure supplémentaire = nouvelle audience
+        document.getElementById("jsd-prime").innerText = prime.toFixed(2);
+    });
+
+    document.getElementById("srt-form").addEventListener("submit", (e)=>{
+        e.preventDefault();
+        const hours = parseFloat(document.getElementById("srt-hours").value);
+        const prime = hours * 20; // exemple $20/heure
+        document.getElementById("srt-prime").innerText = prime.toFixed(2);
+    });
+
+    document.getElementById("afd-form").addEventListener("submit", (e)=>{
+        e.preventDefault();
+        const convois = parseInt(document.getElementById("afd-convois").value);
+        const prime = convois * 500;
+        document.getElementById("afd-prime").innerText = prime.toFixed(2);
+    });
+
+    document.getElementById("com-form").addEventListener("submit", (e)=>{
+        e.preventDefault();
+        const publications = parseInt(document.getElementById("com-publications").value);
+        const videos = parseInt(document.getElementById("com-videos").value);
+        const prime = (publications * 250) + (videos * 500);
+        document.getElementById("com-prime").innerText = prime.toFixed(2);
+    });
+
+    document.getElementById("hc-form").addEventListener("submit", (e)=>{
+        e.preventDefault();
+        const hours = parseFloat(document.getElementById("hc-hours").value);
+        const prime = hours * 25; // exemple $25/heure
+        document.getElementById("hc-prime").innerText = prime.toFixed(2);
+    });
 </script>
+
 </body>
 </html>
