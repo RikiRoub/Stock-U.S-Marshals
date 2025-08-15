@@ -27,7 +27,15 @@
         <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
         <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
         <input type="text" id="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
-        <input type="text" id="statut" placeholder="STATUT ACTUEL" required>
+        
+        <!-- STATUT ACTUEL en menu déroulant -->
+        <select id="statut" required>
+            <option value="">STATUT ACTUEL</option>
+            <option>En attente</option>
+            <option>Saisi</option>
+            <option>Restitué</option>
+        </select>
+
         <input type="text" id="affaires" placeholder="AFFAIRS LIÉE" required>
 
         <select id="typeArmes" required>
@@ -127,7 +135,16 @@
                         <td>${item.date}</td>
                         <td>${item.lieu}</td>
                         <td>${item.provenance}</td>
-                        <td>${item.statut}</td>
+
+                        <!-- STATUT ACTUEL en menu déroulant dans le tableau -->
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','statut', this.value)">
+                                <option ${item.statut === "En attente" ? "selected" : ""}>En attente</option>
+                                <option ${item.statut === "Saisi" ? "selected" : ""}>Saisi</option>
+                                <option ${item.statut === "Restitué" ? "selected" : ""}>Restitué</option>
+                            </select>
+                        </td>
+
                         <td>${item.affaires}</td>
                         <td>
                             <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
@@ -162,7 +179,7 @@
                 date: document.getElementById("date").value.trim(),
                 lieu: document.getElementById("lieu").value.trim(),
                 provenance: document.getElementById("provenance").value.trim(),
-                statut: document.getElementById("statut").value.trim(),
+                statut: document.getElementById("statut").value,
                 affaires: document.getElementById("affaires").value.trim(),
                 typeArmes: document.getElementById("typeArmes").value,
                 stockage: document.getElementById("stockage").value
