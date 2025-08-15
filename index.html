@@ -76,7 +76,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
@@ -110,61 +110,6 @@ async function supprimer(id) {
     await deleteDoc(doc(db, "stock", id));
 }
 
-// Mettre à jour un article
-async function modifierArticle(id, article) {
-    await updateDoc(doc(db, "stock", id), article);
-}
-
-// Rendre une ligne éditable
-function rendreEditable(row, item, id) {
-    const cells = row.children;
-    cells[1].innerHTML = `<input value="${item.nom}">`;
-    cells[2].innerHTML = `<input type="number" value="${item.quantite}">`;
-    cells[3].innerHTML = `
-        <select>
-            <option ${item.typeArmes==="Fusil"?"selected":""}>Fusil</option>
-            <option ${item.typeArmes==="Pistolet"?"selected":""}>Pistolet</option>
-            <option ${item.typeArmes==="Mitrailleuse"?"selected":""}>Mitrailleuse</option>
-        </select>`;
-    cells[4].innerHTML = `
-        <select>
-            <option ${item.calibre==="9mm"?"selected":""}>9mm</option>
-            <option ${item.calibre==="7.62mm"?"selected":""}>7.62mm</option>
-            <option ${item.calibre===".45 ACP"?"selected":""}>.45 ACP</option>
-        </select>`;
-    cells[5].innerHTML = `<input value="${item.date}">`;
-    cells[6].innerHTML = `<input value="${item.lieu}">`;
-    cells[7].innerHTML = `<input value="${item.provenance}">`;
-    cells[8].innerHTML = `<input value="${item.statut}">`;
-    cells[9].innerHTML = `<input value="${item.affaires}">`;
-    cells[10].innerHTML = `
-        <select>
-            <option ${item.stockage==="Armoire"?"selected":""}>Armoire</option>
-            <option ${item.stockage==="Box sécurisé"?"selected":""}>Box sécurisé</option>
-            <option ${item.stockage==="Magasin"?"selected":""}>Magasin</option>
-        </select>`;
-    cells[11].innerHTML = `<button onclick="validerModif('${id}', this)">Valider</button>`;
-}
-
-// Valider modification
-window.validerModif = async function(id, btn) {
-    const row = btn.parentElement.parentElement;
-    const cells = row.children;
-    const article = {
-        nom: cells[1].children[0].value,
-        quantite: parseInt(cells[2].children[0].value,10),
-        typeArmes: cells[3].children[0].value,
-        calibre: cells[4].children[0].value,
-        date: cells[5].children[0].value,
-        lieu: cells[6].children[0].value,
-        provenance: cells[7].children[0].value,
-        statut: cells[8].children[0].value,
-        affaires: cells[9].children[0].value,
-        stockage: cells[10].children[0].value
-    };
-    await modifierArticle(id, article);
-}
-
 // Afficher le stock
 function afficherStock() {
     const tbody = document.getElementById("tableau-stock");
@@ -186,10 +131,7 @@ function afficherStock() {
                 <td>${item.statut}</td>
                 <td>${item.affaires}</td>
                 <td>${item.stockage}</td>
-                <td>
-                    <button onclick="rendreEditable(this.parentElement.parentElement, ${JSON.stringify(item)}, '${docSnap.id}')">Modifier</button>
-                    <button onclick="supprimer('${docSnap.id}')">Supprimer</button>
-                </td>`;
+                <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>`;
             tbody.appendChild(row);
             compteur++;
         });
@@ -216,7 +158,6 @@ document.getElementById("form-stock").addEventListener("submit", function(e){
 
 afficherStock();
 window.supprimer = supprimer;
-window.rendreEditable = rendreEditable;
 </script>
 </body>
 </html>
