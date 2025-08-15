@@ -19,6 +19,48 @@
     </style>
 </head>
 <body>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+// Config Firebase (à adapter avec ton projet)
+const firebaseConfig = {
+    apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+    authDomain: "gestion-stock-d63d0.firebaseapp.com",
+    projectId: "gestion-stock-d63d0",
+    storageBucket: "gestion-stock-d63d0.appspot.com",
+    messagingSenderId: "865227689174",
+    appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+    measurementId: "G-LX4G4FY0ZP"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth();
+const db = getFirestore(app);
+
+// Vérification du rôle AFD
+onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+        window.location.href = "login.html";
+        return;
+    }
+    const docRef = doc(db, "users", user.uid);
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) {
+        alert("Utilisateur introuvable");
+        window.location.href = "login.html";
+        return;
+    }
+    const role = docSnap.data().role;
+    if (role !== "AFD") {
+        alert("Accès interdit");
+        window.location.href = "index.html";
+    }
+});
+</script>
+
     <h1>Stock Saisies Légales</h1>
 
 <!-- Bouton pour retourner à l'accueil -->
