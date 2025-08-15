@@ -1,30 +1,116 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Dashboard Agent - Primes</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    h1 { text-align: center; }
-    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background-color: #f2f2f2; }
-    input, select, button { padding: 5px; margin: 2px; }
-    button { cursor: pointer; }
-</style>
+    <meta charset="UTF-8">
+    <title>Dashboard Agent - Primes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; max-width: 1000px; }
+        h2 { margin-top: 30px; }
+        form { margin-bottom: 10px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; }
+        input, button { padding: 5px; margin: 5px 0; }
+        .hidden { display: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+    </style>
 </head>
 <body>
-<h1>Dashboard Agent</h1>
-<button onclick="window.location.href='index.html'">Accueil</button>
 
-<div id="tablesContainer"></div>
+<h1>Dashboard Agent</h1>
+<p id="welcome-msg"></p>
+
+<!-- FTF Section -->
+<div id="ftf-section" class="hidden">
+    <h2>FTF - Saisir Reward</h2>
+    <form id="ftf-form">
+        <input type="number" id="ftf-reward" placeholder="Reward Wanted $" required>
+        <button type="submit">Ajouter</button>
+    </form>
+    <p>Prime totale: $<span id="ftf-total-prime">0</span></p>
+    <table id="ftf-table">
+        <thead><tr><th>Reward</th><th>Prime</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- JSD Section -->
+<div id="jsd-section" class="hidden">
+    <h2>JSD - Audience Protection</h2>
+    <form id="jsd-form">
+        <input type="number" id="jsd-hours" placeholder="Durée audience (heures)" required>
+        <button type="submit">Ajouter</button>
+    </form>
+    <p>Prime totale: $<span id="jsd-total-prime">0</span></p>
+    <table id="jsd-table">
+        <thead><tr><th>Durée (h)</th><th>Prime</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- SRT Section -->
+<div id="srt-section" class="hidden">
+    <h2>SRT - Prime d'activité</h2>
+    <form id="srt-form">
+        <input type="number" id="srt-hours" placeholder="Nombre d'heures" required>
+        <button type="submit">Ajouter</button>
+    </form>
+    <p>Prime totale: $<span id="srt-total-prime">0</span></p>
+    <table id="srt-table">
+        <thead><tr><th>Heures</th><th>Prime</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- AFD Section -->
+<div id="afd-section" class="hidden">
+    <h2>AFD - Convois</h2>
+    <form id="afd-form">
+        <input type="number" id="afd-convois" placeholder="Nombre de convois" required>
+        <button type="submit">Ajouter</button>
+    </form>
+    <p>Prime totale: $<span id="afd-total-prime">0</span></p>
+    <table id="afd-table">
+        <thead><tr><th>Convois</th><th>Prime</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- COM Section -->
+<div id="com-section" class="hidden">
+    <h2>COM - Publications / Vidéos</h2>
+    <form id="com-form">
+        <input type="number" id="com-publications" placeholder="Nombre de publications" required>
+        <input type="number" id="com-videos" placeholder="Nombre de vidéos" required>
+        <button type="submit">Ajouter</button>
+    </form>
+    <p>Prime totale: $<span id="com-total-prime">0</span></p>
+    <table id="com-table">
+        <thead><tr><th>Publications</th><th>Vidéos</th><th>Prime</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<!-- HC Section -->
+<div id="hc-section" class="hidden">
+    <h2>HC - Prime d'activité</h2>
+    <form id="hc-form">
+        <input type="number" id="hc-hours" placeholder="Nombre d'heures" required>
+        <button type="submit">Ajouter</button>
+    </form>
+    <p>Prime totale: $<span id="hc-total-prime">0</span></p>
+    <table id="hc-table">
+        <thead><tr><th>Heures</th><th>Prime</th><th>Action</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, deleteDoc, doc, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
+// Config Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
     authDomain: "gestion-stock-d63d0.firebaseapp.com",
@@ -32,98 +118,117 @@ const firebaseConfig = {
     storageBucket: "gestion-stock-d63d0.appspot.com",
     messagingSenderId: "865227689174",
     appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-    measurementId: "G-LX4G4FY0ZP"
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth();
+const auth = getAuth(app);
 const db = getFirestore(app);
 
-const tablesContainer = document.getElementById("tablesContainer");
+let currentRoles = [];
+let userActivities = {
+    ftf: [],
+    jsd: [],
+    srt: [],
+    afd: [],
+    com: [],
+    hc: []
+};
 
-onAuthStateChanged(auth, async (user)=>{
-    if(!user){ window.location.href="login.html"; return; }
+// Fonction générale pour gérer chaque rôle
+function setupRole(role, calcPrimeFunc) {
+    const form = document.getElementById(`${role}-form`);
+    const tableBody = document.querySelector(`#${role}-table tbody`);
+    const totalSpan = document.getElementById(`${role}-total-prime`);
 
-    const userDoc = await getDoc(doc(db,"users",user.uid));
-    if(!userDoc.exists()){ alert("Utilisateur introuvable"); return; }
-    const roles = userDoc.data().roles || [];
-
-    roles.forEach(role=>{
-        createRoleTable(role, user.uid);
-    });
-});
-
-async function createRoleTable(role, userId){
-    const tableWrapper = document.createElement("div");
-    tableWrapper.innerHTML = `<h3>${role}</h3>
-        <table id="table-${role}">
-            <thead>
-                <tr>
-                    <th>Données</th>
-                    <th>Prime ($)</th>
-                    <th>Date</th>
-                    <th>Actions</th>
-                </tr>
-                <tr>
-                    <td id="inputs-${role}"></td>
-                    <td></td>
-                    <td></td>
-                    <td><button id="add-${role}">Ajouter</button></td>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>`;
-    tablesContainer.appendChild(tableWrapper);
-
-    const tbody = tableWrapper.querySelector("tbody");
-    const inputsTd = document.getElementById(`inputs-${role}`);
-
-    // Création des champs d'entrée selon le rôle
-    if(role==="FTF"){ inputsTd.innerHTML=`Reward: <input type="number" id="input-${role}-reward">`; }
-    else if(role==="JSD"){ inputsTd.innerHTML=`Durée (min): <input type="number" id="input-${role}-duration">`; }
-    else if(role==="SRT" || role==="HC"){ inputsTd.innerHTML=`Heures: <input type="number" id="input-${role}-hours">`; }
-    else if(role==="AFD"){ inputsTd.innerHTML=`Convois: <input type="number" id="input-${role}-convois">`; }
-    else if(role==="COM"){ inputsTd.innerHTML=`Pub: <input type="number" id="input-${role}-pub"> Vidéos: <input type="number" id="input-${role}-vid">`; }
-
-    document.getElementById(`add-${role}`).addEventListener("click", async ()=>{
-        let data={}, prime=0;
-        if(role==="FTF"){ const r=parseFloat(document.getElementById(`input-${role}-reward`).value); data.reward=r; prime=r*0.065; }
-        else if(role==="JSD"){ const m=parseInt(document.getElementById(`input-${role}-duration`).value); data.minutes=m; prime=Math.ceil(m/60)*125; }
-        else if(role==="SRT" || role==="HC"){ const h=parseFloat(document.getElementById(`input-${role}-hours`).value); data.hours=h; prime=h*50; }
-        else if(role==="AFD"){ const c=parseInt(document.getElementById(`input-${role}-convois`).value); data.convois=c; prime=c*500; }
-        else if(role==="COM"){ const p=parseInt(document.getElementById(`input-${role}-pub`).value); const v=parseInt(document.getElementById(`input-${role}-vid`).value); data.publications=p; data.videos=v; prime=p*250+v*500; }
-
-        const docRef = await addDoc(collection(db,"weeklyActivities"),{
-            userId, role, data, prime, createdAt: new Date()
+    function renderTable() {
+        tableBody.innerHTML = "";
+        let total = 0;
+        userActivities[role].forEach((act, index) => {
+            const prime = calcPrimeFunc(act);
+            total += prime;
+            const row = document.createElement("tr");
+            let cols = "";
+            if(role === "ftf") cols = `<td>${act.reward}</td><td>${prime.toFixed(2)}</td>`;
+            else if(role === "jsd") cols = `<td>${act.hours}</td><td>${prime.toFixed(2)}</td>`;
+            else if(role === "srt" || role === "hc") cols = `<td>${act.hours}</td><td>${prime.toFixed(2)}</td>`;
+            else if(role === "afd") cols = `<td>${act.convois}</td><td>${prime.toFixed(2)}</td>`;
+            else if(role === "com") cols = `<td>${act.publications}</td><td>${act.videos}</td><td>${prime.toFixed(2)}</td>`;
+            row.innerHTML = cols + `<td><button data-index="${index}">Supprimer</button></td>`;
+            tableBody.appendChild(row);
         });
+        totalSpan.innerText = total.toFixed(2);
 
-        addRow(tbody, docRef.id, role, data, prime, new Date());
+        tableBody.querySelectorAll("button").forEach(btn => {
+            btn.addEventListener("click", async e => {
+                const idx = parseInt(e.target.dataset.index);
+                userActivities[role].splice(idx, 1);
+                await setDoc(doc(db, "userActivities", auth.currentUser.uid), userActivities, { merge:true });
+                renderTable();
+            });
+        });
+    }
+
+    form.addEventListener("submit", async e => {
+        e.preventDefault();
+        const newAct = {};
+        if(role === "ftf") newAct.reward = parseFloat(document.getElementById("ftf-reward").value);
+        else if(role === "jsd") newAct.hours = parseFloat(document.getElementById("jsd-hours").value);
+        else if(role === "srt") newAct.hours = parseFloat(document.getElementById("srt-hours").value);
+        else if(role === "afd") newAct.convois = parseInt(document.getElementById("afd-convois").value);
+        else if(role === "com") {
+            newAct.publications = parseInt(document.getElementById("com-publications").value);
+            newAct.videos = parseInt(document.getElementById("com-videos").value);
+        }
+        else if(role === "hc") newAct.hours = parseFloat(document.getElementById("hc-hours").value);
+
+        userActivities[role].push(newAct);
+        await setDoc(doc(db, "userActivities", auth.currentUser.uid), userActivities, { merge:true });
+        renderTable();
+        form.reset();
     });
 
-    loadRoleActivities(role, userId, tbody);
+    return renderTable;
 }
 
-async function loadRoleActivities(role, userId, tbody){
-    const q = query(collection(db,"weeklyActivities"), where("userId","==",userId), where("role","==",role), orderBy("createdAt","asc"));
-    const snapshot = await getDocs(q);
-    snapshot.forEach(docSnap=>{
-        const act = docSnap.data();
-        addRow(tbody, docSnap.id, role, act.data, act.prime, act.createdAt.toDate());
-    });
-}
+// Prime calculation functions
+const primeFuncs = {
+    ftf: (act) => act.reward * 0.065,
+    jsd: (act) => act.hours * 35,
+    srt: (act) => act.hours * 23,
+    afd: (act) => act.convois * 20,
+    com: (act) => act.publications * 10 + act.videos * 15,
+    hc: (act) => act.hours * 30
+};
 
-function addRow(tbody, id, role, data, prime, date){
-    const tr = document.createElement("tr");
-    tr.innerHTML=`<td>${JSON.stringify(data)}</td>
-                  <td>${prime.toFixed(2)}</td>
-                  <td>${date.toLocaleString()}</td>
-                  <td><button>Supprimer</button></td>`;
-    tr.querySelector("button").addEventListener("click", async ()=>{
-        await deleteDoc(doc(db,"weeklyActivities",id));
-        tr.remove();
-    });
-    tbody.appendChild(tr);
-}
+// Setup each role
+const renderFTF = setupRole("ftf", primeFuncs.ftf);
+const renderJSD = setupRole("jsd", primeFuncs.jsd);
+const renderSRT = setupRole("srt", primeFuncs.srt);
+const renderAFD = setupRole("afd", primeFuncs.afd);
+const renderCOM = setupRole("com", primeFuncs.com);
+const renderHC = setupRole("hc", primeFuncs.hc);
+
+onAuthStateChanged(auth, async (user) => {
+    if(!user) return;
+
+    document.getElementById("welcome-msg").innerText = `Bienvenue ${user.email}`;
+
+    const docRef = doc(db, "userActivities", user.uid);
+    const docSnap = await getDoc(docRef);
+    if(docSnap.exists()) userActivities = docSnap.data();
+
+    // Afficher toutes les sections et tableaux
+    ["ftf","jsd","srt","afd","com","hc"].forEach(r => document.getElementById(`${r}-section`).classList.remove("hidden"));
+
+    // Render tables
+    renderFTF();
+    renderJSD();
+    renderSRT();
+    renderAFD();
+    renderCOM();
+    renderHC();
+});
 </script>
+
 </body>
 </html>
