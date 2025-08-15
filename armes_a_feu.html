@@ -21,10 +21,10 @@
 <body>
     <h1>Stock Armes à Feu</h1>
 
-<!-- Bouton pour retourner à l'accueil -->
-<button onclick="window.location.href='index.html'" style="margin-bottom: 20px; padding: 5px 10px; cursor: pointer;">
-    Accueil
-</button>
+    <!-- Bouton pour retourner à l'accueil -->
+    <button onclick="window.location.href='index.html'" style="margin-bottom: 20px; padding: 5px 10px; cursor: pointer;">
+        Accueil
+    </button>
 
     <form id="form-stock">
         <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
@@ -124,6 +124,16 @@
             }
         }
 
+        async function modifierSelect(id, champ, valeur) {
+            try {
+                const docRef = doc(db, "armes_a_feu", id);
+                await updateDoc(docRef, { [champ]: valeur });
+            } catch (error) {
+                console.error("Erreur lors de la modification :", error);
+            }
+        }
+        window.modifierSelect = modifierSelect;
+
         function afficherStock() {
             const tbody = document.getElementById("tableau-stock");
             onSnapshot(stockCollection, (snapshot) => {
@@ -179,19 +189,27 @@
             });
         }
 
-        async function modifierSelect(id, champ, valeur) {
-            try {
-                const docRef = doc(db, "armes_a_feu", id);
-                await updateDoc(docRef, { [champ]: valeur });
-            } catch (error) {
-                console.error("Erreur lors de la modification :", error);
-            }
-        }
-        window.modifierSelect = modifierSelect;
-
-        document.getElementById("form-stock").addEventListener("submit", function(e) {
+        document.getElementById("form-stock").addEventListener("submit", async function(e) {
             e.preventDefault();
+
             const article = {
                 nom: document.getElementById("nom").value.trim(),
                 numeroSerie: document.getElementById("numeroSerie").value.trim(),
-                date: document.getElementById
+                date: document.getElementById("date").value.trim(),
+                lieu: document.getElementById("lieu").value.trim(),
+                provenance: document.getElementById("provenance").value.trim(),
+                statut: document.getElementById("statut").value,
+                affaires: document.getElementById("affaires").value.trim(),
+                typeArmes: document.getElementById("typeArmes").value,
+                calibre: document.getElementById("calibre").value,
+                stockage: document.getElementById("stockage").value
+            };
+
+            await ajouterArticle(article);
+            this.reset();
+        });
+
+        afficherStock();
+    </script>
+</body>
+</html>
