@@ -1,42 +1,18 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Créer un compte</title>
-</head>
-<body>
-    <h1>Créer un compte</h1>
-    <form id="signup-form">
-        <input type="email" id="email" placeholder="Email" required>
-        <input type="password" id="password" placeholder="Mot de passe" required>
-        <button type="submit">S'inscrire</button>
-    </form>
-    <p id="message"></p>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-        import { firebaseConfig } from "./js/firebase-config.js"; // ton fichier de config
-
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-
-        const form = document.getElementById("signup-form");
-        const message = document.getElementById("message");
-
-        form.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            const email = document.getElementById("email").value;
-            const password = document.getElementById("password").value;
-
-            try {
-                await createUserWithEmailAndPassword(auth, email, password);
-                message.textContent = "Compte créé avec succès ! Vous pouvez maintenant vous connecter.";
-                form.reset();
-            } catch (error) {
-                message.textContent = "Erreur : " + error.message;
-            }
-        });
-    </script>
-</body>
-</html>
+<form id="signup-form">
+    <input type="email" id="email" placeholder="Email" required>
+    <input type="password" id="password" placeholder="Mot de passe" required>
+    
+    <label>Choisir les rôles :</label>
+    <select id="roles" multiple required>
+        <option value="ADMIN">ADMIN</option>
+        <option value="AFD">AFD</option>
+        <option value="USMS">USMS</option>
+        <option value="FTF">FTF</option>
+        <option value="JSD">JSD</option>
+        <option value="SRT">SRT</option>
+        <option value="COM">COM</option>
+        <option value="HC">HC</option>
+    </select>
+    
+    <button type="submit">Créer le compte</button>
+</form>
