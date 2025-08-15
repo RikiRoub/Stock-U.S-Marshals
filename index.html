@@ -1,8 +1,8 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Arme Blanche</title>
+    <title>Gestion Armes Blanches</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body {
@@ -44,10 +44,10 @@
     </style>
 </head>
 <body>
-    <h1>Arme Blanche</h1>
+    <h1>Armes Blanches</h1>
 
-    <form id="form-armesblanches">
-        <input type="text" id="nom" placeholder="ETIQUETTE ARMES BLANCHES" required>
+    <form id="form-stock">
+        <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
         <input type="number" id="quantite" placeholder="Quantité" min="0" required>
         <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
         <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
@@ -59,7 +59,14 @@
             <option value="">TYPE D'ARMES</option>
             <option>Couteau</option>
             <option>Poignard</option>
-            <option>Lame</option>
+            <option>Epée</option>
+        </select>
+
+        <select id="calibre" required>
+            <option value="">CALIBRE</option>
+            <option>Petit</option>
+            <option>Moyen</option>
+            <option>Grand</option>
         </select>
 
         <select id="stockage" required>
@@ -76,9 +83,10 @@
         <thead>
             <tr>
                 <th>N° DE SAISIES</th>
-                <th>ETIQUETTE ARMES BLANCHES</th>
+                <th>ETIQUETTE ARMES</th>
                 <th>Quantité</th>
                 <th>TYPE D'ARMES</th>
+                <th>CALIBRE</th>
                 <th>DATE D'ENTRE SAISIES</th>
                 <th>LIEU DE SAISIE</th>
                 <th>PROVENANCE PRÉSUMÉE</th>
@@ -88,7 +96,7 @@
                 <th>Action</th>
             </tr>
         </thead>
-        <tbody id="tableau-armesblanches"></tbody>
+        <tbody id="tableau-stock"></tbody>
     </table>
 
     <script type="module">
@@ -107,18 +115,13 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const armesBlanchesCollection = collection(db, "armes_blanches");
+        const stockCollection = collection(db, "arme_blanche");
 
         let compteur = 1;
 
-        // Formater le N° DE SAISIES en AB000001
-        function formatNumSaisie(num) {
-            return "AB" + num.toString().padStart(6, "0");
-        }
-
         async function ajouterArticle(article) {
             try {
-                await addDoc(armesBlanchesCollection, article);
+                await addDoc(stockCollection, article);
             } catch (error) {
                 console.error("Erreur lors de l'ajout :", error);
             }
@@ -127,81 +130,28 @@
         async function supprimer(id) {
             if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
             try {
-                await deleteDoc(doc(db, "armes_blanches", id));
+                await deleteDoc(doc(db, "arme_blanche", id));
             } catch (error) {
                 console.error("Erreur lors de la suppression :", error);
             }
         }
 
-        async function modifierSelect(id, champ, valeur) {
-            try {
-                const docRef = doc(db, "armes_blanches", id);
-                await updateDoc(docRef, { [champ]: valeur });
-            } catch (error) {
-                console.error("Erreur lors de la modification :", error);
-            }
-        }
-        window.modifierSelect = modifierSelect;
-
-        function afficherArmesBlanches() {
-            const tbody = document.getElementById("tableau-armesblanches");
-            onSnapshot(armesBlanchesCollection, (snapshot) => {
+        function afficherStock() {
+            const tbody = document.getElementById("tableau-stock");
+            onSnapshot(stockCollection, (snapshot) => {
                 tbody.innerHTML = "";
                 compteur = 1;
                 snapshot.forEach(docSnap => {
                     const item = docSnap.data();
-                    const row = document.createElement("tr");
+                    const numero = "AB" + compteur.toString().padStart(6, "0");
 
+                    const row = document.createElement("tr");
                     row.innerHTML = `
-                        <td>${formatNumSaisie(compteur)}</td>
+                        <td>${numero}</td>
                         <td>${item.nom}</td>
                         <td>${item.quantite}</td>
                         <td>
                             <select onchange="modifierSelect('${docSnap.id}','typeArmes', this.value)">
                                 <option ${item.typeArmes === "Couteau" ? "selected" : ""}>Couteau</option>
                                 <option ${item.typeArmes === "Poignard" ? "selected" : ""}>Poignard</option>
-                                <option ${item.typeArmes === "Lame" ? "selected" : ""}>Lame</option>
-                            </select>
-                        </td>
-                        <td>${item.date}</td>
-                        <td>${item.lieu}</td>
-                        <td>${item.provenance}</td>
-                        <td>${item.statut}</td>
-                        <td>${item.affaires}</td>
-                        <td>
-                            <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
-                                <option ${item.stockage === "Armoire" ? "selected" : ""}>Armoire</option>
-                                <option ${item.stockage === "Box sécurisé" ? "selected" : ""}>Box sécurisé</option>
-                                <option ${item.stockage === "Magasin" ? "selected" : ""}>Magasin</option>
-                            </select>
-                        </td>
-                        <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
-                    `;
-                    tbody.appendChild(row);
-                    compteur++;
-                });
-            });
-        }
-
-        document.getElementById("form-armesblanches").addEventListener("submit", function(e) {
-            e.preventDefault();
-            const article = {
-                nom: document.getElementById("nom").value.trim(),
-                quantite: parseInt(document.getElementById("quantite").value, 10),
-                date: document.getElementById("date").value.trim(),
-                lieu: document.getElementById("lieu").value.trim(),
-                provenance: document.getElementById("provenance").value.trim(),
-                statut: document.getElementById("statut").value.trim(),
-                affaires: document.getElementById("affaires").value.trim(),
-                typeArmes: document.getElementById("typeArmes").value,
-                stockage: document.getElementById("stockage").value
-            };
-            ajouterArticle(article);
-            this.reset();
-        });
-
-        afficherArmesBlanches();
-        window.supprimer = supprimer;
-    </script>
-</body>
-</html>
+                                <option ${item.ty
