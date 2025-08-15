@@ -24,7 +24,7 @@
         form {
             margin-bottom: 20px;
         }
-        input {
+        input, select {
             padding: 5px;
             margin: 5px;
         }
@@ -36,7 +36,7 @@
             table, th, td {
                 font-size: 14px;
             }
-            input, button {
+            input, select, button {
                 width: 100%;
                 margin: 5px 0;
             }
@@ -47,24 +47,58 @@
     <h1>Mon Stock</h1>
 
     <form id="form-stock">
-        <input type="text" id="nom" placeholder="Nom de l'article" required>
+        <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
         <input type="number" id="quantite" placeholder="Quantité" min="0" required>
+        <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
+        <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
+        <input type="text" id="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
+        <input type="text" id="statut" placeholder="STATUT ACTUEL" required>
+        <input type="text" id="affaires" placeholder="AFFAIRS LIÉE" required>
+
+        <select id="typeArmes" required>
+            <option value="">TYPE D'ARMES</option>
+            <option>Fusil</option>
+            <option>Pistolet</option>
+            <option>Mitrailleuse</option>
+        </select>
+
+        <select id="calibre" required>
+            <option value="">CALIBRE</option>
+            <option>9mm</option>
+            <option>7.62mm</option>
+            <option>.45 ACP</option>
+        </select>
+
+        <select id="stockage" required>
+            <option value="">STOCKAGE</option>
+            <option>Armoire</option>
+            <option>Box sécurisé</option>
+            <option>Magasin</option>
+        </select>
+
         <button type="submit">Ajouter</button>
     </form>
 
     <table>
         <thead>
             <tr>
-                <th>Article</th>
+                <th>N° DE SAISIES</th>
+                <th>ETIQUETTE ARMES</th>
                 <th>Quantité</th>
+                <th>TYPE D'ARMES</th>
+                <th>CALIBRE</th>
+                <th>DATE D'ENTRE SAISIES</th>
+                <th>LIEU DE SAISIE</th>
+                <th>PROVENANCE PRÉSUMÉE</th>
+                <th>STATUT ACTUEL</th>
+                <th>AFFAIRS LIÉE</th>
+                <th>STOCKAGE</th>
                 <th>Action</th>
             </tr>
         </thead>
-        <tbody id="tableau-stock">
-        </tbody>
+        <tbody id="tableau-stock"></tbody>
     </table>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
         import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
@@ -83,20 +117,16 @@
         const db = getFirestore(app);
         const stockCollection = collection(db, "stock");
 
-        // Ajouter un article
-        async function ajouterArticle(nom, quantite) {
-            if (!nom || isNaN(quantite) || quantite < 0) {
-                alert("Veuillez entrer un nom valide et une quantité positive.");
-                return;
-            }
+        let compteur = 1; // Pour N° DE SAISIES
+
+        async function ajouterArticle(article) {
             try {
-                await addDoc(stockCollection, { nom, quantite });
+                await addDoc(stockCollection, article);
             } catch (error) {
                 console.error("Erreur lors de l'ajout :", error);
             }
         }
 
-        // Supprimer un article
         async function supprimer(id) {
             if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
             try {
@@ -106,37 +136,83 @@
             }
         }
 
-        // Afficher le stock en temps réel
         function afficherStock() {
             const tbody = document.getElementById("tableau-stock");
             onSnapshot(stockCollection, (snapshot) => {
                 tbody.innerHTML = "";
+                compteur = 1;
                 snapshot.forEach(docSnap => {
                     const item = docSnap.data();
                     const row = document.createElement("tr");
+
                     row.innerHTML = `
+                        <td>${compteur}</td>
                         <td>${item.nom}</td>
                         <td>${item.quantite}</td>
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','typeArmes', this.value)">
+                                <option ${item.typeArmes === "Fusil" ? "selected" : ""}>Fusil</option>
+                                <option ${item.typeArmes === "Pistolet" ? "selected" : ""}>Pistolet</option>
+                                <option ${item.typeArmes === "Mitrailleuse" ? "selected" : ""}>Mitrailleuse</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','calibre', this.value)">
+                                <option ${item.calibre === "9mm" ? "selected" : ""}>9mm</option>
+                                <option ${item.calibre === "7.62mm" ? "selected" : ""}>7.62mm</option>
+                                <option ${item.calibre === ".45 ACP" ? "selected" : ""}>.45 ACP</option>
+                            </select>
+                        </td>
+                        <td>${item.date}</td>
+                        <td>${item.lieu}</td>
+                        <td>${item.provenance}</td>
+                        <td>${item.statut}</td>
+                        <td>${item.affaires}</td>
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
+                                <option ${item.stockage === "Armoire" ? "selected" : ""}>Armoire</option>
+                                <option ${item.stockage === "Box sécurisé" ? "selected" : ""}>Box sécurisé</option>
+                                <option ${item.stockage === "Magasin" ? "selected" : ""}>Magasin</option>
+                            </select>
+                        </td>
                         <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
                     `;
                     tbody.appendChild(row);
+                    compteur++;
                 });
             });
         }
 
-        // Gestion du formulaire
+        // Modifier select dans Firestore
+        async function modifierSelect(id, champ, valeur) {
+            try {
+                const docRef = doc(db, "stock", id);
+                await docRef.update({ [champ]: valeur });
+            } catch (error) {
+                console.error("Erreur lors de la modification :", error);
+            }
+        }
+        window.modifierSelect = modifierSelect;
+
         document.getElementById("form-stock").addEventListener("submit", function(e) {
             e.preventDefault();
-            const nom = document.getElementById("nom").value.trim();
-            const quantite = parseInt(document.getElementById("quantite").value, 10);
-            ajouterArticle(nom, quantite);
+            const article = {
+                nom: document.getElementById("nom").value.trim(),
+                quantite: parseInt(document.getElementById("quantite").value, 10),
+                date: document.getElementById("date").value.trim(),
+                lieu: document.getElementById("lieu").value.trim(),
+                provenance: document.getElementById("provenance").value.trim(),
+                statut: document.getElementById("statut").value.trim(),
+                affaires: document.getElementById("affaires").value.trim(),
+                typeArmes: document.getElementById("typeArmes").value,
+                calibre: document.getElementById("calibre").value,
+                stockage: document.getElementById("stockage").value
+            };
+            ajouterArticle(article);
             this.reset();
         });
 
-        // Charger et écouter les données
         afficherStock();
-
-        // Rendre la fonction supprimer accessible globalement
         window.supprimer = supprimer;
     </script>
 </body>
