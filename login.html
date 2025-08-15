@@ -1,102 +1,77 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Connexion / Inscription</title>
-  <style>
-    body { font-family: Arial; max-width: 400px; margin: 50px auto; }
-    input, button { width: 100%; padding: 10px; margin: 5px 0; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Connexion</title>
 </head>
 <body>
+    <h2>Connexion</h2>
+    <form id="loginForm">
+        <input type="email" id="email" placeholder="Email" required><br><br>
+        <input type="password" id="password" placeholder="Mot de passe" required><br><br>
+        <button type="submit">Se connecter</button>
+    </form>
 
-<h2>Connexion</h2>
-<input type="email" id="login-email" placeholder="Email">
-<input type="password" id="login-password" placeholder="Mot de passe">
-<button onclick="login()">Se connecter</button>
+    <p id="message"></p>
 
-<hr>
+    <script type="module">
+        // Import Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-<h2>Inscription</h2>
-<input type="email" id="signup-email" placeholder="Email">
-<input type="password" id="signup-password" placeholder="Mot de passe">
-<button onclick="signup()">Créer un compte</button>
+        // ⚠️ Mets ici ta config Firebase
+        const firebaseConfig = {
+          apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+          authDomain: "gestion-stock-d63d0.firebaseapp.com",
+          projectId: "gestion-stock-d63d0",
+          storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+          messagingSenderId: "865227689174",
+          appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+          measurementId: "G-LX4G4FY0ZP"
+        };
 
-<p id="message"></p>
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
 
-<script type="module">
-  // Import Firebase
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
 
-  // Config Firebase (à remplacer par tes vraies infos)
-  const firebaseConfig = {
-  apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-  authDomain: "gestion-stock-d63d0.firebaseapp.com",
-  projectId: "gestion-stock-d63d0",
-  storageBucket: "gestion-stock-d63d0.firebasestorage.app",
-  messagingSenderId: "865227689174",
-  appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-  measurementId: "G-LX4G4FY0ZP"
-  };
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const message = document.getElementById("message");
 
-  // Init Firebase
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getFirestore(app);
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
 
-  // Fonction inscription
-  async function signup() {
-    const email = document.getElementById("signup-email").value;
-    const password = document.getElementById("signup-password").value;
+                // Vérifie le rôle dans Firestore
+                const docRef = doc(db, "users", user.uid);
+                const docSnap = await getDoc(docRef);
 
-    try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const uid = userCredential.user.uid;
+                if (docSnap.exists()) {
+                    const role = docSnap.data().role;
 
-      // Créer doc Firestore avec rôle "pending"
-      await setDoc(doc(db, "users", uid), {
-        email: email,
-        role: "pending" // L'admin changera plus tard
-      });
-
-      document.getElementById("message").innerText = "Compte créé ! En attente de rôle.";
-    } catch (error) {
-      document.getElementById("message").innerText = error.message;
-    }
-  }
-
-  // Fonction connexion
-  async function login() {
-    const email = document.getElementById("login-email").value;
-    const password = document.getElementById("login-password").value;
-
-    try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const uid = userCredential.user.uid;
-
-      // Vérifier rôle dans Firestore
-      const docRef = doc(db, "users", uid);
-      const docSnap = await getDoc(docRef);
-
-      if (docSnap.exists()) {
-        const role = docSnap.data().role;
-        if (role === "pending") {
-          document.getElementById("message").innerText = "Rôle non attribué. Contactez un admin.";
-        } else {
-          document.getElementById("message").innerText = "Connecté avec rôle : " + role;
-          // Redirection selon rôle
-          // window.location.href = "page_d_accueil.html";
-        }
-      } else {
-        document.getElementById("message").innerText = "Utilisateur sans rôle attribué.";
-      }
-    } catch (error) {
-      document.getElementById("message").innerText = error.message;
-    }
-  }
-</script>
-
+                    // Redirection selon rôle
+                    if (role === "ADMIN") {
+                        window.location.href = "admin.html";
+                    } else if (role === "AFD") {
+                        window.location.href = "armes_a_feu.html";
+                    } else if (role === "USMS") {
+                        window.location.href = "usms.html";
+                    } else if (role === "AB") {
+                        window.location.href = "arme_blanche.html";
+                    } else {
+                        message.textContent = "Aucun accès défini pour ce rôle.";
+                    }
+                } else {
+                    message.textContent = "Utilisateur sans rôle attribué.";
+                }
+            } catch (error) {
+                message.textContent = "Erreur : " + error.message;
+            }
+        });
+    </script>
 </body>
 </html>
