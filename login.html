@@ -9,8 +9,10 @@
     <form id="login-form">
         <label>Email :</label>
         <input type="email" id="email" required><br><br>
+
         <label>Mot de passe :</label>
         <input type="password" id="password" required><br><br>
+
         <button type="submit">Se connecter</button>
     </form>
 
@@ -19,14 +21,14 @@
         import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
-        // Configuration Firebase – remplace par tes infos réelles
+        // Configuration Firebase
         const firebaseConfig = {
-            apiKey: "TA_CLE_API",
-            authDomain: "TON_PROJET.firebaseapp.com",
-            projectId: "TON_PROJET",
-            storageBucket: "TON_PROJET.appspot.com",
-            messagingSenderId: "TON_MESSAGING_ID",
-            appId: "TON_APP_ID"
+          apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
+          authDomain: "gestion-stock-d63d0.firebaseapp.com",
+          projectId: "gestion-stock-d63d0",
+          storageBucket: "gestion-stock-d63d0.firebasestorage.app",
+          messagingSenderId: "865227689174",
+          appId: "1:865227689174:web:213e7f6e44f183c6928d77",
         };
 
         const app = initializeApp(firebaseConfig);
@@ -37,47 +39,49 @@
 
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
+
             const email = document.getElementById("email").value;
             const password = document.getElementById("password").value;
 
             try {
+                // Connexion de l'utilisateur
                 const userCredential = await signInWithEmailAndPassword(auth, email, password);
                 const user = userCredential.user;
 
-                // Récupérer le document utilisateur
+                // Récupération du document utilisateur dans Firestore
                 const userDoc = await getDoc(doc(db, "users", user.uid));
+
                 if (!userDoc.exists()) {
-                    alert("Utilisateur introuvable !");
+                    alert("Utilisateur non trouvé dans Firestore.");
                     return;
                 }
 
                 const userData = userDoc.data();
-                const roles = userData.roles || [];
 
-                if (roles.length === 0) {
-                    alert("Utilisateur sans rôle attribué !");
+                if (!userData.roles || userData.roles.length === 0) {
+                    alert("Utilisateur sans rôle attribué.");
                     return;
                 }
 
-                // Redirection selon rôle principal (ou afficher un menu)
-                if (roles.includes("AFD")) {
+                // Exemple de redirection selon rôle
+                if (userData.roles.includes("AFD")) {
                     window.location.href = "armes_a_feu.html";
-                } else if (roles.includes("USMS")) {
+                } else if (userData.roles.includes("USMS")) {
                     window.location.href = "ftf.html";
-                } else if (roles.includes("JSD")) {
+                } else if (userData.roles.includes("JSD")) {
                     window.location.href = "jsd.html";
-                } else if (roles.includes("SRT")) {
+                } else if (userData.roles.includes("SRT")) {
                     window.location.href = "srt.html";
-                } else if (roles.includes("Com")) {
+                } else if (userData.roles.includes("COM")) {
                     window.location.href = "com.html";
-                } else if (roles.includes("HC")) {
+                } else if (userData.roles.includes("HC")) {
                     window.location.href = "hc.html";
                 } else {
-                    alert("Rôle non reconnu !");
+                    alert("Rôle non géré pour la redirection.");
                 }
 
             } catch (error) {
-                console.error("Erreur connexion :", error);
+                console.error(error);
                 alert("Erreur : " + error.message);
             }
         });
