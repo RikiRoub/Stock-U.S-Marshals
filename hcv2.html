@@ -1,54 +1,8 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Panel HC - Primes</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-        th { background-color: #f2f2f2; }
-        button { margin-top: 20px; padding: 10px 15px; }
-        h1, h2 { margin-top: 20px; }
-    </style>
-</head>
-<body>
-
-<h1>Panel HC - Gestion des primes</h1>
-
-<table id="hc-table">
-    <thead>
-        <tr>
-            <th>Agent</th>
-            <th>Rôle</th>
-            <th>Détails</th>
-            <th>Prime ($)</th>
-            <th>Date</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-<h2>Total par agent</h2>
-<table id="total-table">
-    <thead>
-        <tr>
-            <th>Agent</th>
-            <th>Prime Totale ($)</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-<button id="export-btn">Exporter en Excel</button>
-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { getFirestore, collection, getDocs, query, where, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-// Config Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
     authDomain: "gestion-stock-d63d0.firebaseapp.com",
@@ -67,15 +21,13 @@ const hcTableBody = document.querySelector("#hc-table tbody");
 const totalTableBody = document.querySelector("#total-table tbody");
 const exportBtn = document.getElementById("export-btn");
 
-// Fonction pour récupérer la semaine en cours
 function getStartOfWeek() {
     const d = new Date();
     const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Lundi
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
     return new Date(d.setDate(diff));
 }
 
-// Fonction pour exporter en Excel simple
 function exportToExcel(data) {
     let csv = 'Agent,Rôle,Détails,Prime,Date\n';
     data.forEach(row => {
@@ -88,7 +40,6 @@ function exportToExcel(data) {
     link.click();
 }
 
-// Charger les activités de l'utilisateur
 async function loadAllActivities() {
     hcTableBody.innerHTML = "";
     totalTableBody.innerHTML = "";
@@ -103,35 +54,36 @@ async function loadAllActivities() {
     const snapshot = await getDocs(q);
     const activities = [];
     const totals = {};
+    const hcRows = [];
 
     snapshot.forEach(docSnap => {
         const act = docSnap.data();
         const date = act.createdAt?.toDate().toLocaleString() || "";
         activities.push({ ...act, date });
 
-        // Affichage tableau HC
-        hcTableBody.innerHTML += `<tr>
+        // Construire le HTML du tableau en mémoire
+        hcRows.push(`<tr>
             <td>${act.agentName || act.userId}</td>
             <td>${act.role}</td>
             <td>${JSON.stringify(act.data)}</td>
             <td>${act.prime.toFixed(2)}</td>
             <td>${date}</td>
-        </tr>`;
+        </tr>`);
 
-        if(!totals[act.agentName]) totals[act.agentName] = 0;
-        totals[act.agentName] += act.prime;
+        totals[act.agentName] = (totals[act.agentName] || 0) + act.prime;
     });
 
-    // Affichage total par agent
-    for (const [agent, total] of Object.entries(totals)) {
-        totalTableBody.innerHTML += `<tr>
-            <td>${agent}</td>
-            <td>${total.toFixed(2)}</td>
-        </tr>`;
-    }
+    // Injecter tout le HTML du tableau en une seule fois
+    hcTableBody.innerHTML = hcRows.join('');
+
+    // Construire et injecter le tableau des totaux
+    const totalRows = Object.entries(totals).map(([agent, total]) => 
+        `<tr><td>${agent}</td><td>${total.toFixed(2)}</td></tr>`
+    );
+    totalTableBody.innerHTML = totalRows.join('');
 
     // Export
-    exportBtn.onclick = () => exportToExcel(activities.map(a=>({
+    exportBtn.onclick = () => exportToExcel(activities.map(a => ({
         agent: a.agentName || a.userId,
         role: a.role,
         details: a.data,
@@ -140,8 +92,7 @@ async function loadAllActivities() {
     })));
 }
 
-// Vérification connexion HC
-onAuthStateChanged(auth, user=>{
+onAuthStateChanged(auth, user => {
     if(!user){
         window.location.href = "login.html";
         return;
@@ -149,6 +100,3 @@ onAuthStateChanged(auth, user=>{
     loadAllActivities();
 });
 </script>
-
-</body>
-</html>
