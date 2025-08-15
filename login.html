@@ -1,18 +1,101 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Connexion</title>
+  <meta charset="UTF-8">
+  <title>Connexion / Inscription</title>
+  <style>
+    body { font-family: Arial; max-width: 400px; margin: 50px auto; }
+    input, button { width: 100%; padding: 10px; margin: 5px 0; }
+  </style>
 </head>
 <body>
-    <h1>Connexion</h1>
-    <form id="loginForm">
-        <input type="email" id="email" placeholder="Email" required><br>
-        <input type="password" id="password" placeholder="Mot de passe" required><br>
-        <button type="submit">Se connecter</button>
-    </form>
-    <p id="error" style="color:red;"></p>
 
-    <script type="module" src="js/login.js"></script>
+<h2>Connexion</h2>
+<input type="email" id="login-email" placeholder="Email">
+<input type="password" id="login-password" placeholder="Mot de passe">
+<button onclick="login()">Se connecter</button>
+
+<hr>
+
+<h2>Inscription</h2>
+<input type="email" id="signup-email" placeholder="Email">
+<input type="password" id="signup-password" placeholder="Mot de passe">
+<button onclick="signup()">Créer un compte</button>
+
+<p id="message"></p>
+
+<script type="module">
+  // Import Firebase
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+  // Config Firebase (à remplacer par tes vraies infos)
+  const firebaseConfig = {
+    apiKey: "TON_API_KEY",
+    authDomain: "TON_PROJET.firebaseapp.com",
+    projectId: "TON_PROJET",
+    storageBucket: "TON_PROJET.appspot.com",
+    messagingSenderId: "TON_MESSAGING_ID",
+    appId: "TON_APP_ID"
+  };
+
+  // Init Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Fonction inscription
+  async function signup() {
+    const email = document.getElementById("signup-email").value;
+    const password = document.getElementById("signup-password").value;
+
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // Créer doc Firestore avec rôle "pending"
+      await setDoc(doc(db, "users", uid), {
+        email: email,
+        role: "pending" // L'admin changera plus tard
+      });
+
+      document.getElementById("message").innerText = "Compte créé ! En attente de rôle.";
+    } catch (error) {
+      document.getElementById("message").innerText = error.message;
+    }
+  }
+
+  // Fonction connexion
+  async function login() {
+    const email = document.getElementById("login-email").value;
+    const password = document.getElementById("login-password").value;
+
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const uid = userCredential.user.uid;
+
+      // Vérifier rôle dans Firestore
+      const docRef = doc(db, "users", uid);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const role = docSnap.data().role;
+        if (role === "pending") {
+          document.getElementById("message").innerText = "Rôle non attribué. Contactez un admin.";
+        } else {
+          document.getElementById("message").innerText = "Connecté avec rôle : " + role;
+          // Redirection selon rôle
+          // window.location.href = "page_d_accueil.html";
+        }
+      } else {
+        document.getElementById("message").innerText = "Utilisateur sans rôle attribué.";
+      }
+    } catch (error) {
+      document.getElementById("message").innerText = error.message;
+    }
+  }
+</script>
+
 </body>
 </html>
