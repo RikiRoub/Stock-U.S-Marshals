@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Gestion Armes Blanches</title>
+    <title>Gestion Armes à Feu</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
@@ -19,22 +19,37 @@
     </style>
 </head>
 <body>
-    <h1>Stock Armes Blanches</h1>
+    <h1>Stock Armes à Feu</h1>
 
     <form id="form-stock">
         <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
-        <input type="number" id="quantite" placeholder="Quantité" min="0" required>
+        <input type="text" id="numeroSerie" placeholder="NUMÉRO DE SÉRIE" required>
         <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
         <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
         <input type="text" id="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
-        <input type="text" id="statut" placeholder="STATUT ACTUEL" required>
+
+        <select id="statut" required>
+            <option value="">STATUT ACTUEL</option>
+            <option>Disponible</option>
+            <option>En Maintenance</option>
+            <option>Confisqué</option>
+            <option>En Cours de Saisie</option>
+        </select>
+
         <input type="text" id="affaires" placeholder="AFFAIRS LIÉE" required>
 
         <select id="typeArmes" required>
             <option value="">TYPE D'ARMES</option>
-            <option>Couteau</option>
-            <option>Poignard</option>
-            <option>Lance</option>
+            <option>Fusil</option>
+            <option>Pistolet</option>
+            <option>Mitrailleuse</option>
+        </select>
+
+        <select id="calibre" required>
+            <option value="">CALIBRE</option>
+            <option>9mm</option>
+            <option>7.62mm</option>
+            <option>.45 ACP</option>
         </select>
 
         <select id="stockage" required>
@@ -52,8 +67,9 @@
             <tr>
                 <th>N° DE SAISIES</th>
                 <th>ETIQUETTE ARMES</th>
-                <th>Quantité</th>
+                <th>NUMÉRO DE SÉRIE</th>
                 <th>TYPE D'ARMES</th>
+                <th>CALIBRE</th>
                 <th>DATE D'ENTRE SAISIES</th>
                 <th>LIEU DE SAISIE</th>
                 <th>PROVENANCE PRÉSUMÉE</th>
@@ -82,7 +98,7 @@
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
-        const stockCollection = collection(db, "arme_blanche");
+        const stockCollection = collection(db, "armes_a_feu");
 
         let compteur = 1;
 
@@ -97,7 +113,7 @@
         async function supprimer(id) {
             if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
             try {
-                await deleteDoc(doc(db, "arme_blanche", id));
+                await deleteDoc(doc(db, "armes_a_feu", id));
             } catch (error) {
                 console.error("Erreur lors de la suppression :", error);
             }
@@ -110,24 +126,38 @@
                 compteur = 1;
                 snapshot.forEach(docSnap => {
                     const item = docSnap.data();
-                    const numeroSaisie = "AB" + compteur.toString().padStart(6, "0");
+                    const numeroSaisie = "AAF" + compteur.toString().padStart(6, "0");
                     const row = document.createElement("tr");
 
                     row.innerHTML = `
                         <td>${numeroSaisie}</td>
                         <td>${item.nom}</td>
-                        <td>${item.quantite}</td>
+                        <td>${item.numeroSerie}</td>
                         <td>
                             <select onchange="modifierSelect('${docSnap.id}','typeArmes', this.value)">
-                                <option ${item.typeArmes === "Couteau" ? "selected" : ""}>Couteau</option>
-                                <option ${item.typeArmes === "Poignard" ? "selected" : ""}>Poignard</option>
-                                <option ${item.typeArmes === "Lance" ? "selected" : ""}>Lance</option>
+                                <option ${item.typeArmes === "Fusil" ? "selected" : ""}>Fusil</option>
+                                <option ${item.typeArmes === "Pistolet" ? "selected" : ""}>Pistolet</option>
+                                <option ${item.typeArmes === "Mitrailleuse" ? "selected" : ""}>Mitrailleuse</option>
+                            </select>
+                        </td>
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','calibre', this.value)">
+                                <option ${item.calibre === "9mm" ? "selected" : ""}>9mm</option>
+                                <option ${item.calibre === "7.62mm" ? "selected" : ""}>7.62mm</option>
+                                <option ${item.calibre === ".45 ACP" ? "selected" : ""}>.45 ACP</option>
                             </select>
                         </td>
                         <td>${item.date}</td>
                         <td>${item.lieu}</td>
                         <td>${item.provenance}</td>
-                        <td>${item.statut}</td>
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','statut', this.value)">
+                                <option ${item.statut === "Disponible" ? "selected" : ""}>Disponible</option>
+                                <option ${item.statut === "En Maintenance" ? "selected" : ""}>En Maintenance</option>
+                                <option ${item.statut === "Confisqué" ? "selected" : ""}>Confisqué</option>
+                                <option ${item.statut === "En Cours de Saisie" ? "selected" : ""}>En Cours de Saisie</option>
+                            </select>
+                        </td>
                         <td>${item.affaires}</td>
                         <td>
                             <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
@@ -146,7 +176,7 @@
 
         async function modifierSelect(id, champ, valeur) {
             try {
-                const docRef = doc(db, "arme_blanche", id);
+                const docRef = doc(db, "armes_a_feu", id);
                 await updateDoc(docRef, { [champ]: valeur });
             } catch (error) {
                 console.error("Erreur lors de la modification :", error);
@@ -158,21 +188,5 @@
             e.preventDefault();
             const article = {
                 nom: document.getElementById("nom").value.trim(),
-                quantite: parseInt(document.getElementById("quantite").value, 10),
-                date: document.getElementById("date").value.trim(),
-                lieu: document.getElementById("lieu").value.trim(),
-                provenance: document.getElementById("provenance").value.trim(),
-                statut: document.getElementById("statut").value.trim(),
-                affaires: document.getElementById("affaires").value.trim(),
-                typeArmes: document.getElementById("typeArmes").value,
-                stockage: document.getElementById("stockage").value
-            };
-            ajouterArticle(article);
-            this.reset();
-        });
-
-        afficherStock();
-        window.supprimer = supprimer;
-    </script>
-</body>
-</html>
+                numeroSerie: document.getElementById("numeroSerie").value.trim(),
+                date: document.getElementById
