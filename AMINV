@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin - Gestion des rôles</title>
+</head>
+<body>
+    <h2>Gestion des rôles des utilisateurs</h2>
+    <form id="role-form">
+        <label>Email de l'utilisateur :</label>
+        <input type="email" id="user-email" required><br><br>
+
+        <label>Rôles à attribuer :</label><br>
+        <input type="checkbox" id="afd" value="AFD"> AFD<br>
+        <input type="checkbox" id="usms" value="USMS"> USMS<br>
+        <input type="checkbox" id="jsd" value="JSD"> JSD<br>
+        <input type="checkbox" id="srt" value="SRT"> SRT<br>
+        <input type="checkbox" id="com" value="Com"> Com<br>
+        <input type="checkbox" id="hc" value="HC"> HC<br><br>
+
+        <button type="submit">Attribuer les rôles</button>
+    </form>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+        import { getAuth, fetchSignInMethodsForEmail } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-auth.js";
+        import { getFirestore, doc, updateDoc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+        // Configuration Firebase
+        const firebaseConfig = {
+            apiKey: "TA_CLE_API",
+            authDomain: "TON_PROJET.firebaseapp.com",
+            projectId: "TON_PROJET",
+            storageBucket: "TON_PROJET.appspot.com",
+            messagingSenderId: "TON_MESSAGING_ID",
+            appId: "TON_APP_ID"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const roleForm = document.getElementById("role-form");
+
+        roleForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("user-email").value;
+            const rolesToAdd = [];
+
+            if(document.getElementById("afd").checked) rolesToAdd.push("AFD");
+            if(document.getElementById("usms").checked) rolesToAdd.push("USMS");
+            if(document.getElementById("jsd").checked) rolesToAdd.push("JSD");
+            if(document.getElementById("srt").checked) rolesToAdd.push("SRT");
+            if(document.getElementById("com").checked) rolesToAdd.push("Com");
+            if(document.getElementById("hc").checked) rolesToAdd.push("HC");
+
+            try {
+                // Vérifier que l'utilisateur existe
+                const methods = await fetchSignInMethodsForEmail(auth, email);
+                if(methods.length === 0) {
+                    alert("Utilisateur non trouvé !");
+                    return;
+                }
+
+                // Récupérer le doc de l'utilisateur
+                const usersSnapshot = await getDoc(doc(db, "users", email));
+                const userRef = doc(db, "users", email);
+
+                // Si doc n'existe pas, créer avec les rôles
+                const userDoc = await getDoc(userRef);
+                if (!userDoc.exists()) {
+                    await updateDoc(userRef, {
+                        roles: rolesToAdd
+                    });
+                    alert("Rôles attribués avec succès !");
+                } else {
+                    const existingRoles = userDoc.data().roles || [];
+                    const newRoles = Array.from(new Set([...existingRoles, ...rolesToAdd]));
+                    await updateDoc(userRef, { roles: newRoles });
+                    alert("Rôles mis à jour avec succès !");
+                }
+
+            } catch (error) {
+                console.error(error);
+                alert("Erreur : " + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
