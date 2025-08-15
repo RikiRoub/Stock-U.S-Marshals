@@ -2,66 +2,48 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Agent</title>
+    <title>Dashboard Agent - Primes</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        h1 { text-align: center; }
+        form, table { margin-bottom: 20px; width: 100%; }
+        input, select, button { padding: 5px; margin: 5px 0; }
+        table { border-collapse: collapse; width: 100%; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background-color: #f2f2f2; }
-        input, select, button { margin: 5px 0; padding: 5px; width: 100%; }
-        .form-section { margin-bottom: 30px; }
-        h1, h2 { margin-top: 20px; }
+        @media (max-width:600px){ input, select, button{width:100%;} }
     </style>
 </head>
 <body>
+    <h1>Dashboard Agent</h1>
+    <button onclick="window.location.href='index.html'">Accueil</button>
 
-<h1>Dashboard Agent</h1>
+    <div id="forms-container"></div>
 
-<div class="form-section">
-    <h2>Enregistrer une activité</h2>
-    
-    <form id="activity-form">
-        <label>Type d'activité :</label>
-        <select id="activity-type" required>
-            <option value="">--Choisir--</option>
-            <option value="FTF">FTF</option>
-            <option value="JSD">JSD</option>
-            <option value="SRT">SRT</option>
-            <option value="AFD">AFD</option>
-            <option value="COM">COM</option>
-            <option value="HC">HC</option>
-        </select>
-
-        <div id="activity-inputs"></div>
-        <button type="submit">Ajouter activité</button>
-    </form>
-</div>
-
-<h2>Historique de vos activités (semaine en cours)</h2>
-<table id="history-table">
-    <thead>
-        <tr>
-            <th>Type</th>
-            <th>Détails</th>
-            <th>Prime ($)</th>
-            <th>Date</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
+    <h2>Historique de vos activités (semaine en cours)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Rôle</th>
+                <th>Données</th>
+                <th>Prime ($)</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+    </table>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, getDocs, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, where, orderBy, getDocs, Timestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
-// Config Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
     authDomain: "gestion-stock-d63d0.firebaseapp.com",
     projectId: "gestion-stock-d63d0",
-    storageBucket: "gestion-stock-d63d0",
+    storageBucket: "gestion-stock-d63d0.appspot.com",
     messagingSenderId: "865227689174",
     appId: "1:865227689174:web:213e7f6e44f183c6928d77",
     measurementId: "G-LX4G4FY0ZP"
@@ -71,100 +53,115 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore(app);
 
-const activityTypeSelect = document.getElementById("activity-type");
-const activityInputs = document.getElementById("activity-inputs");
-const activityForm = document.getElementById("activity-form");
-const historyTableBody = document.querySelector("#history-table tbody");
+const formsContainer = document.getElementById("forms-container");
+const historyTableBody = document.getElementById("historyTableBody");
 
-// Fonction pour générer inputs selon l'activité
-activityTypeSelect.addEventListener("change", () => {
-    const type = activityTypeSelect.value;
-    let html = "";
-    switch(type){
-        case "FTF":
-            html = `<label>Reward du Wanted ($):</label><input type="number" id="ftf-reward" required />`;
-            break;
-        case "JSD":
-            html = `<label>Nombre de protections:</label><input type="number" id="jsd-protections" required />
-                    <label>Durée totale des audiences (heures):</label><input type="number" id="jsd-hours" required />`;
-            break;
-        case "SRT":
-        case "HC":
-            html = `<label>Heures travaillées:</label><input type="number" id="hours" required />`;
-            break;
-        case "AFD":
-            html = `<label>Nombre de convois:</label><input type="number" id="afd-convois" required />`;
-            break;
-        case "COM":
-            html = `<label>Publications:</label><input type="number" id="com-publications" value="0" />
-                    <label>Vidéos:</label><input type="number" id="com-videos" value="0" />`;
-            break;
-    }
-    activityInputs.innerHTML = html;
-});
+onAuthStateChanged(auth, async (user)=>{
+    if(!user){ window.location.href="login.html"; return; }
 
-// Calcul prime selon activité
-function calculatePrime(type, data){
-    let prime = 0;
-    switch(type){
-        case "FTF": prime = data.reward * 0.065; break;
-        case "JSD": 
-            const audiences = Math.floor(data.hours) > 1 ? data.protections + (Math.floor(data.hours) - 1) : data.protections;
-            prime = audiences * 125; break;
-        case "SRT": prime = data.hours * 20; break; // exemple: 20$/h
-        case "HC": prime = data.hours * 15; break;  // exemple: 15$/h
-        case "AFD": prime = data.convois * 500; break;
-        case "COM": prime = data.publications*250 + data.videos*500; break;
-    }
-    return prime;
-}
+    // Récupération des rôles
+    const userDoc = await getDoc(doc(db,"users",user.uid));
+    if(!userDoc.exists()){ alert("Utilisateur introuvable"); return; }
+    const roles = userDoc.data().roles || [];
 
-// Ajouter activité
-activityForm.addEventListener("submit", async e=>{
-    e.preventDefault();
-    const type = activityTypeSelect.value;
-    let data = {};
-    switch(type){
-        case "FTF": data = { reward: parseFloat(document.getElementById("ftf-reward").value) }; break;
-        case "JSD": data = { protections: parseInt(document.getElementById("jsd-protections").value), hours: parseFloat(document.getElementById("jsd-hours").value) }; break;
-        case "SRT":
-        case "HC": data = { hours: parseFloat(document.getElementById("hours").value) }; break;
-        case "AFD": data = { convois: parseInt(document.getElementById("afd-convois").value) }; break;
-        case "COM": data = { publications: parseInt(document.getElementById("com-publications").value), videos: parseInt(document.getElementById("com-videos").value) }; break;
-    }
+    // Création des formulaires dynamiques selon le rôle
+    roles.forEach(role=>{
+        const form = document.createElement("form");
+        form.id = `form-${role}`;
+        form.innerHTML = `<h3>${role}</h3>`;
+        if(role==="FTF"){
+            form.innerHTML += `
+                Reward du Wanted: <input type="number" id="ftfReward" required>
+                <button type="submit">Ajouter</button>
+            `;
+        } else if(role==="JSD"){
+            form.innerHTML += `
+                Durée audience (en minutes): <input type="number" id="jsdDuration" required>
+                <button type="submit">Ajouter</button>
+            `;
+        } else if(role==="SRT" || role==="HC"){
+            form.innerHTML += `
+                Heures travaillées: <input type="number" id="${role}Hours" required>
+                <button type="submit">Ajouter</button>
+            `;
+        } else if(role==="AFD"){
+            form.innerHTML += `
+                Nombre de convois: <input type="number" id="afdConvois" required>
+                <button type="submit">Ajouter</button>
+            `;
+        } else if(role==="COM"){
+            form.innerHTML += `
+                Publications: <input type="number" id="comPub" required>
+                Vidéos: <input type="number" id="comVid" required>
+                <button type="submit">Ajouter</button>
+            `;
+        }
+        formsContainer.appendChild(form);
 
-    const prime = calculatePrime(type, data);
-    const user = auth.currentUser;
-    await addDoc(collection(db, "weeklyActivities"), {
-        userId: user.uid,
-        agentName: user.displayName || "Agent",
-        role: type,
-        data,
-        prime,
-        createdAt: Timestamp.now()
+        // Gestion de l'envoi du formulaire
+        form.addEventListener("submit", async (e)=>{
+            e.preventDefault();
+            let data={}, prime=0;
+            if(role==="FTF"){
+                const reward = parseFloat(document.getElementById("ftfReward").value);
+                data.reward = reward;
+                prime = reward*0.065;
+            } else if(role==="JSD"){
+                let minutes = parseInt(document.getElementById("jsdDuration").value);
+                let audiences = Math.ceil(minutes/60);
+                data.minutes = minutes;
+                prime = audiences*125;
+            } else if(role==="SRT" || role==="HC"){
+                let hours = parseFloat(document.getElementById(`${role}Hours`).value);
+                data.hours = hours;
+                prime = hours*50; // Exemple $50/h
+            } else if(role==="AFD"){
+                let convois = parseInt(document.getElementById("afdConvois").value);
+                data.convois = convois;
+                prime = convois*500;
+            } else if(role==="COM"){
+                let pub = parseInt(document.getElementById("comPub").value);
+                let vid = parseInt(document.getElementById("comVid").value);
+                data.publications = pub; data.videos=vid;
+                prime = pub*250 + vid*500;
+            }
+
+            await addDoc(collection(db,"weeklyActivities"),{
+                userId: user.uid,
+                role: role,
+                data: data,
+                prime: prime,
+                createdAt: Timestamp.fromDate(new Date())
+            });
+
+            alert("Activité ajoutée !");
+            form.reset();
+            loadHistory();
+        });
     });
+
     loadHistory();
-    activityForm.reset();
-    activityInputs.innerHTML = "";
 });
 
-// Historique semaine en cours
+// Fonction pour afficher l'historique de la semaine
 async function loadHistory(){
+    const user = auth.currentUser;
+    if(!user) return;
+
     const startWeek = new Date();
     const day = startWeek.getDay();
-    const diff = startWeek.getDate() - day + (day===0 ? -6 :1);
+    const diff = startWeek.getDate() - day + (day===0? -6:1);
     startWeek.setDate(diff); startWeek.setHours(0,0,0,0);
 
-    const user = auth.currentUser;
     const q = query(
-        collection(db, "weeklyActivities"),
-        where("userId", "==", user.uid),
-        where("createdAt", ">=", Timestamp.fromDate(startWeek)),
-        orderBy("createdAt")
+        collection(db,"weeklyActivities"),
+        where("userId","==",user.uid),
+        where("createdAt",">=", Timestamp.fromDate(startWeek)),
+        orderBy("createdAt","asc")
     );
 
     const snapshot = await getDocs(q);
-    historyTableBody.innerHTML = "";
+    historyTableBody.innerHTML="";
     snapshot.forEach(docSnap=>{
         const act = docSnap.data();
         const date = act.createdAt.toDate().toLocaleString();
@@ -176,13 +173,6 @@ async function loadHistory(){
         </tr>`;
     });
 }
-
-// Vérification connexion
-onAuthStateChanged(auth, user=>{
-    if(!user) window.location.href="login.html";
-    else loadHistory();
-});
 </script>
-
 </body>
 </html>
