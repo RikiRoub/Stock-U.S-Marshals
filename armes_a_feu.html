@@ -2,24 +2,19 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Gestion Armes à Feu</title>
+    <title>Armes à Feu</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        table { width: 100%; border-collapse: collapse; }
+        body { font-family: Arial; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background-color: #f2f2f2; }
-        form { margin-bottom: 20px; }
-        input, select { padding: 5px; margin: 5px; }
-        button { padding: 5px 10px; cursor: pointer; }
-        @media (max-width: 600px) {
-            table, th, td { font-size: 14px; }
-            input, select, button { width: 100%; margin: 5px 0; }
-        }
+        input, select, button { padding: 5px; margin: 5px; }
+        @media(max-width:600px){ table, th, td { font-size:14px; } input, select, button { width:100%; margin:5px 0; } }
     </style>
 </head>
 <body>
-    <h1>Stock Armes à Feu</h1>
+    <h1>Armes à Feu</h1>
 
     <form id="form-stock">
         <input type="text" id="nom" placeholder="ETIQUETTE ARMES" required>
@@ -76,67 +71,58 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
         const firebaseConfig = {
-            apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
-            authDomain: "gestion-stock-d63d0.firebaseapp.com",
-            projectId: "gestion-stock-d63d0",
-            storageBucket: "gestion-stock-d63d0.appspot.com",
-            messagingSenderId: "865227689174",
-            appId: "1:865227689174:web:213e7f6e44f183c6928d77",
-            measurementId: "G-LX4G4FY0ZP"
+            apiKey: "VOTRE_API_KEY",
+            authDomain: "VOTRE_AUTH_DOMAIN",
+            projectId: "VOTRE_PROJECT_ID",
+            storageBucket: "VOTRE_STORAGE_BUCKET",
+            messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
+            appId: "VOTRE_APP_ID"
         };
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const stockCollection = collection(db, "armes_a_feu");
 
-        let compteur = 1;
-
         async function ajouterArticle(article) {
-            try {
-                await addDoc(stockCollection, article);
-            } catch (error) {
-                console.error("Erreur lors de l'ajout :", error);
-            }
+            try { await addDoc(stockCollection, article); }
+            catch (e) { console.error("Erreur ajout:", e); }
         }
 
         async function supprimer(id) {
-            if (!confirm("Voulez-vous vraiment supprimer cet article ?")) return;
-            try {
-                await deleteDoc(doc(db, "armes_a_feu", id));
-            } catch (error) {
-                console.error("Erreur lors de la suppression :", error);
-            }
+            if(!confirm("Voulez-vous supprimer cet article ?")) return;
+            try { await deleteDoc(doc(db, "armes_a_feu", id)); }
+            catch(e){ console.error("Erreur suppression:", e); }
         }
 
         function afficherStock() {
             const tbody = document.getElementById("tableau-stock");
-            onSnapshot(stockCollection, (snapshot) => {
-                tbody.innerHTML = "";
-                compteur = 1;
-                snapshot.forEach(docSnap => {
+            const q = query(stockCollection, orderBy("date", "asc"));
+            onSnapshot(q, (snapshot)=>{
+                tbody.innerHTML="";
+                let compteur=1;
+                snapshot.forEach(docSnap=>{
                     const item = docSnap.data();
-                    const numeroSaisie = "AAF" + compteur.toString().padStart(6, "0");
+                    const nSerie = "AAF"+String(compteur).padStart(6,"0");
                     const row = document.createElement("tr");
-
                     row.innerHTML = `
-                        <td>${numeroSaisie}</td>
+                        <td>${nSerie}</td>
                         <td>${item.nom}</td>
                         <td>${item.quantite}</td>
                         <td>
                             <select onchange="modifierSelect('${docSnap.id}','typeArmes', this.value)">
-                                <option ${item.typeArmes === "Fusil" ? "selected" : ""}>Fusil</option>
-                                <option ${item.typeArmes === "Pistolet" ? "selected" : ""}>Pistolet</option>
-                                <option ${item.typeArmes === "Mitrailleuse" ? "selected" : ""}>Mitrailleuse</option>
+                                <option ${item.typeArmes==="Fusil"?"selected":""}>Fusil</option>
+                                <option ${item.typeArmes==="Pistolet"?"selected":""}>Pistolet</option>
+                                <option ${item.typeArmes==="Mitrailleuse"?"selected":""}>Mitrailleuse</option>
                             </select>
                         </td>
                         <td>
                             <select onchange="modifierSelect('${docSnap.id}','calibre', this.value)">
-                                <option ${item.calibre === "9mm" ? "selected" : ""}>9mm</option>
-                                <option ${item.calibre === "7.62mm" ? "selected" : ""}>7.62mm</option>
-                                <option ${item.calibre === ".45 ACP" ? "selected" : ""}>.45 ACP</option>
+                                <option ${item.calibre==="9mm"?"selected":""}>9mm</option>
+                                <option ${item.calibre==="7.62mm"?"selected":""}>7.62mm</option>
+                                <option ${item.calibre===".45 ACP"?"selected":""}>.45 ACP</option>
                             </select>
                         </td>
                         <td>${item.date}</td>
@@ -146,9 +132,9 @@
                         <td>${item.affaires}</td>
                         <td>
                             <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
-                                <option ${item.stockage === "Armoire" ? "selected" : ""}>Armoire</option>
-                                <option ${item.stockage === "Box sécurisé" ? "selected" : ""}>Box sécurisé</option>
-                                <option ${item.stockage === "Magasin" ? "selected" : ""}>Magasin</option>
+                                <option ${item.stockage==="Armoire"?"selected":""}>Armoire</option>
+                                <option ${item.stockage==="Box sécurisé"?"selected":""}>Box sécurisé</option>
+                                <option ${item.stockage==="Magasin"?"selected":""}>Magasin</option>
                             </select>
                         </td>
                         <td><button onclick="supprimer('${docSnap.id}')">Supprimer</button></td>
@@ -159,21 +145,18 @@
             });
         }
 
-        async function modifierSelect(id, champ, valeur) {
-            try {
-                const docRef = doc(db, "armes_a_feu", id);
-                await updateDoc(docRef, { [champ]: valeur });
-            } catch (error) {
-                console.error("Erreur lors de la modification :", error);
-            }
+        async function modifierSelect(id, champ, valeur){
+            try { await doc(db,"armes_a_feu",id).update({ [champ]:valeur }); }
+            catch(e){ console.error("Erreur modif:",e); }
         }
         window.modifierSelect = modifierSelect;
+        window.supprimer = supprimer;
 
-        document.getElementById("form-stock").addEventListener("submit", function(e) {
+        document.getElementById("form-stock").addEventListener("submit", function(e){
             e.preventDefault();
             const article = {
                 nom: document.getElementById("nom").value.trim(),
-                quantite: parseInt(document.getElementById("quantite").value, 10),
+                quantite: parseInt(document.getElementById("quantite").value,10),
                 date: document.getElementById("date").value.trim(),
                 lieu: document.getElementById("lieu").value.trim(),
                 provenance: document.getElementById("provenance").value.trim(),
@@ -188,7 +171,6 @@
         });
 
         afficherStock();
-        window.supprimer = supprimer;
     </script>
 </body>
 </html>
