@@ -91,4 +91,30 @@
             if (!currentUserDoc) return;
             const docRef = doc(db, "users", currentUserDoc.id);
             await updateDoc(docRef, { roles: arrayRemove(role) });
-            await currentUserDoc.r
+            await currentUserDoc.ref.get().then(docSnap => currentUserDoc = docSnap);
+            afficherRoles();
+        }
+
+        btnRechercher.addEventListener("click", () => {
+            const email = emailInput.value.trim();
+            if (email) rechercherUtilisateur(email);
+        });
+
+        btnAjouterRole.addEventListener("click", () => {
+            const role = nouveauRoleInput.value.trim();
+            if (role) {
+                ajouterRole(role);
+                nouveauRoleInput.value = "";
+            }
+        });
+
+        btnSupprimerRole.addEventListener("click", () => {
+            const role = nouveauRoleInput.value.trim();
+            if (role) {
+                supprimerRole(role);
+                nouveauRoleInput.value = "";
+            }
+        });
+    </script>
+</body>
+</html>
