@@ -1,67 +1,154 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<title>Panel HC - Primes</title>
-<style>
-    body { font-family: Arial; margin: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background-color: #f2f2f2; }
-</style>
+    <meta charset="UTF-8">
+    <title>Panel HC - Primes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        button { margin-top: 20px; padding: 10px 15px; }
+        h1, h2 { margin-top: 20px; }
+    </style>
 </head>
 <body>
-<h1>Panel HC - Activités Hebdomadaires</h1>
-<table id="activities-table">
+
+<h1>Panel HC - Gestion des primes</h1>
+
+<table id="hc-table">
     <thead>
         <tr>
             <th>Agent</th>
             <th>Rôle</th>
-            <th>Prime ($)</th>
             <th>Détails</th>
+            <th>Prime ($)</th>
             <th>Date</th>
         </tr>
     </thead>
     <tbody></tbody>
 </table>
 
+<h2>Total par agent</h2>
+<table id="total-table">
+    <thead>
+        <tr>
+            <th>Agent</th>
+            <th>Prime Totale ($)</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<button id="export-btn">Exporter en Excel</button>
+
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, getDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, query, where, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
+// Config Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
     authDomain: "gestion-stock-d63d0.firebaseapp.com",
     projectId: "gestion-stock-d63d0",
+    storageBucket: "gestion-stock-d63d0.appspot.com",
+    messagingSenderId: "865227689174",
+    appId: "1:865227689174:web:213e7f6e44f183c6928d77",
+    measurementId: "G-LX4G4FY0ZP"
 };
+
 const app = initializeApp(firebaseConfig);
+const auth = getAuth();
 const db = getFirestore(app);
 
-async function loadActivities() {
-    const q = query(collection(db, "weeklyActivities"), orderBy("createdAt", "desc"));
-    const snapshot = await getDocs(q);
-    const tbody = document.querySelector("#activities-table tbody");
-    tbody.innerHTML = "";
+const hcTableBody = document.querySelector("#hc-table tbody");
+const totalTableBody = document.querySelector("#total-table tbody");
+const exportBtn = document.getElementById("export-btn");
 
-    for(let docSnap of snapshot.docs){
-        const data = docSnap.data();
-        let userEmail = "Inconnu";
-        try {
-            const userSnap = await getDoc(doc(db,"users",data.userId));
-            if(userSnap.exists()) userEmail = userSnap.data().email;
-        } catch(e){ console.error(e);}
-        const date = data.createdAt?.toDate().toLocaleString() || "";
-        tbody.innerHTML += `<tr>
-            <td>${userEmail}</td>
-            <td>${data.role}</td>
-            <td>${data.prime.toFixed(2)}</td>
-            <td>${JSON.stringify(data.data)}</td>
-            <td>${date}</td>
-        </tr>`;
-    }
+// Fonction pour récupérer la semaine en cours
+function getStartOfWeek() {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Lundi
+    return new Date(d.setDate(diff));
 }
 
-loadActivities();
+// Fonction pour exporter en Excel simple
+function exportToExcel(data) {
+    let csv = 'Agent,Rôle,Détails,Prime,Date\n';
+    data.forEach(row => {
+        csv += `${row.agent},${row.role},"${JSON.stringify(row.details)}",${row.prime},${row.date}\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "primes_agents.csv";
+    link.click();
+}
+
+// Charger les activités de la semaine
+async function loadAllActivities() {
+    hcTableBody.innerHTML = "";
+    totalTableBody.innerHTML = "";
+
+    const startWeek = getStartOfWeek();
+    const q = query(
+        collection(db, "weeklyActivities"),
+        where("createdAt", ">=", Timestamp.fromDate(startWeek)),
+        orderBy("createdAt")
+    );
+
+    const snapshot = await getDocs(q);
+    const activities = [];
+    const totals = {};
+
+    snapshot.forEach(docSnap => {
+        const act = docSnap.data();
+        const date = act.createdAt?.toDate().toLocaleString() || "";
+        activities.push({ ...act, date });
+
+        // Affichage tableau HC
+        hcTableBody.innerHTML += `<tr>
+            <td>${act.agentName || act.userId}</td>
+            <td>${act.role}</td>
+            <td>${JSON.stringify(act.data)}</td>
+            <td>${act.prime.toFixed(2)}</td>
+            <td>${date}</td>
+        </tr>`;
+
+        if(!totals[act.agentName]) totals[act.agentName] = 0;
+        totals[act.agentName] += act.prime;
+    });
+
+    // Affichage total par agent
+    for (const [agent, total] of Object.entries(totals)) {
+        totalTableBody.innerHTML += `<tr>
+            <td>${agent}</td>
+            <td>${total.toFixed(2)}</td>
+        </tr>`;
+    }
+
+    // Export
+    exportBtn.onclick = () => exportToExcel(activities.map(a=>({
+        agent: a.agentName || a.userId,
+        role: a.role,
+        details: a.data,
+        prime: a.prime.toFixed(2),
+        date: a.date
+    })));
+}
+
+// Vérification connexion HC
+onAuthStateChanged(auth, user=>{
+    if(!user){
+        window.location.href = "login.html";
+        return;
+    }
+    loadAllActivities();
+});
 </script>
+
 </body>
 </html>
