@@ -9,25 +9,42 @@
         table { width: 100%; border-collapse: collapse; margin-top: 20px; }
         th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
         th { background-color: #f2f2f2; }
-        form { margin-bottom: 20px; }
-        input, select, button { padding: 5px; margin: 5px 0; }
-        h2 { margin-top: 30px; }
+        input, select, button { margin: 5px 0; padding: 5px; width: 100%; }
+        .form-section { margin-bottom: 30px; }
+        h1, h2 { margin-top: 20px; }
     </style>
 </head>
 <body>
 
 <h1>Dashboard Agent</h1>
 
-<!-- Formulaires selon rôle -->
-<div id="forms-container"></div>
+<div class="form-section">
+    <h2>Enregistrer une activité</h2>
+    
+    <form id="activity-form">
+        <label>Type d'activité :</label>
+        <select id="activity-type" required>
+            <option value="">--Choisir--</option>
+            <option value="FTF">FTF</option>
+            <option value="JSD">JSD</option>
+            <option value="SRT">SRT</option>
+            <option value="AFD">AFD</option>
+            <option value="COM">COM</option>
+            <option value="HC">HC</option>
+        </select>
 
-<h2>Mes activités de la semaine</h2>
-<table id="my-activities-table">
+        <div id="activity-inputs"></div>
+        <button type="submit">Ajouter activité</button>
+    </form>
+</div>
+
+<h2>Historique de vos activités (semaine en cours)</h2>
+<table id="history-table">
     <thead>
         <tr>
-            <th>Rôle</th>
-            <th>Prime ($)</th>
+            <th>Type</th>
             <th>Détails</th>
+            <th>Prime ($)</th>
             <th>Date</th>
         </tr>
     </thead>
@@ -37,14 +54,14 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, addDoc, query, where, getDocs, serverTimestamp, orderBy } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, query, where, getDocs, orderBy, Timestamp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 // Config Firebase
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
     authDomain: "gestion-stock-d63d0.firebaseapp.com",
     projectId: "gestion-stock-d63d0",
-    storageBucket: "gestion-stock-d63d0.appspot.com",
+    storageBucket: "gestion-stock-d63d0",
     messagingSenderId: "865227689174",
     appId: "1:865227689174:web:213e7f6e44f183c6928d77",
     measurementId: "G-LX4G4FY0ZP"
@@ -54,184 +71,118 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth();
 const db = getFirestore(app);
 
-const formsContainer = document.getElementById("forms-container");
+const activityTypeSelect = document.getElementById("activity-type");
+const activityInputs = document.getElementById("activity-inputs");
+const activityForm = document.getElementById("activity-form");
+const historyTableBody = document.querySelector("#history-table tbody");
 
-// Récupération des activités de l’agent
-async function loadMyActivities() {
+// Fonction pour générer inputs selon l'activité
+activityTypeSelect.addEventListener("change", () => {
+    const type = activityTypeSelect.value;
+    let html = "";
+    switch(type){
+        case "FTF":
+            html = `<label>Reward du Wanted ($):</label><input type="number" id="ftf-reward" required />`;
+            break;
+        case "JSD":
+            html = `<label>Nombre de protections:</label><input type="number" id="jsd-protections" required />
+                    <label>Durée totale des audiences (heures):</label><input type="number" id="jsd-hours" required />`;
+            break;
+        case "SRT":
+        case "HC":
+            html = `<label>Heures travaillées:</label><input type="number" id="hours" required />`;
+            break;
+        case "AFD":
+            html = `<label>Nombre de convois:</label><input type="number" id="afd-convois" required />`;
+            break;
+        case "COM":
+            html = `<label>Publications:</label><input type="number" id="com-publications" value="0" />
+                    <label>Vidéos:</label><input type="number" id="com-videos" value="0" />`;
+            break;
+    }
+    activityInputs.innerHTML = html;
+});
+
+// Calcul prime selon activité
+function calculatePrime(type, data){
+    let prime = 0;
+    switch(type){
+        case "FTF": prime = data.reward * 0.065; break;
+        case "JSD": 
+            const audiences = Math.floor(data.hours) > 1 ? data.protections + (Math.floor(data.hours) - 1) : data.protections;
+            prime = audiences * 125; break;
+        case "SRT": prime = data.hours * 20; break; // exemple: 20$/h
+        case "HC": prime = data.hours * 15; break;  // exemple: 15$/h
+        case "AFD": prime = data.convois * 500; break;
+        case "COM": prime = data.publications*250 + data.videos*500; break;
+    }
+    return prime;
+}
+
+// Ajouter activité
+activityForm.addEventListener("submit", async e=>{
+    e.preventDefault();
+    const type = activityTypeSelect.value;
+    let data = {};
+    switch(type){
+        case "FTF": data = { reward: parseFloat(document.getElementById("ftf-reward").value) }; break;
+        case "JSD": data = { protections: parseInt(document.getElementById("jsd-protections").value), hours: parseFloat(document.getElementById("jsd-hours").value) }; break;
+        case "SRT":
+        case "HC": data = { hours: parseFloat(document.getElementById("hours").value) }; break;
+        case "AFD": data = { convois: parseInt(document.getElementById("afd-convois").value) }; break;
+        case "COM": data = { publications: parseInt(document.getElementById("com-publications").value), videos: parseInt(document.getElementById("com-videos").value) }; break;
+    }
+
+    const prime = calculatePrime(type, data);
     const user = auth.currentUser;
-    if(!user) return;
+    await addDoc(collection(db, "weeklyActivities"), {
+        userId: user.uid,
+        agentName: user.displayName || "Agent",
+        role: type,
+        data,
+        prime,
+        createdAt: Timestamp.now()
+    });
+    loadHistory();
+    activityForm.reset();
+    activityInputs.innerHTML = "";
+});
 
+// Historique semaine en cours
+async function loadHistory(){
+    const startWeek = new Date();
+    const day = startWeek.getDay();
+    const diff = startWeek.getDate() - day + (day===0 ? -6 :1);
+    startWeek.setDate(diff); startWeek.setHours(0,0,0,0);
+
+    const user = auth.currentUser;
     const q = query(
         collection(db, "weeklyActivities"),
         where("userId", "==", user.uid),
-        orderBy("createdAt", "desc")
+        where("createdAt", ">=", Timestamp.fromDate(startWeek)),
+        orderBy("createdAt")
     );
-    const snapshot = await getDocs(q);
-    const tbody = document.querySelector("#my-activities-table tbody");
-    tbody.innerHTML = "";
 
-    snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const date = data.createdAt?.toDate().toLocaleString() || "";
-        tbody.innerHTML += `<tr>
-            <td>${data.role}</td>
-            <td>${data.prime.toFixed(2)}</td>
-            <td>${JSON.stringify(data.data)}</td>
+    const snapshot = await getDocs(q);
+    historyTableBody.innerHTML = "";
+    snapshot.forEach(docSnap=>{
+        const act = docSnap.data();
+        const date = act.createdAt.toDate().toLocaleString();
+        historyTableBody.innerHTML += `<tr>
+            <td>${act.role}</td>
+            <td>${JSON.stringify(act.data)}</td>
+            <td>${act.prime.toFixed(2)}</td>
             <td>${date}</td>
         </tr>`;
     });
 }
 
-// Fonction pour enregistrer activité
-async function saveActivity(role, prime, extraData={}) {
-    const user = auth.currentUser;
-    if(!user) return;
-    try {
-        await addDoc(collection(db, "weeklyActivities"), {
-            userId: user.uid,
-            role: role,
-            prime: prime,
-            data: extraData,
-            createdAt: serverTimestamp()
-        });
-        alert("Activité enregistrée !");
-        loadMyActivities(); // recharge l’historique
-    } catch(e) {
-        console.error("Erreur enregistrement:", e);
-    }
-}
-
-// Création dynamique des formulaires selon le rôle
-function createForms(roles) {
-    formsContainer.innerHTML = "";
-
-    if(roles.includes("FTF")) {
-        const formFTF = document.createElement("form");
-        formFTF.innerHTML = `
-            <h2>FTF - Reward Wanted</h2>
-            <input type="number" placeholder="Reward Wanted $" id="reward-ftf" required>
-            <button type="submit">Calculer Prime</button>
-        `;
-        formFTF.addEventListener("submit", e=>{
-            e.preventDefault();
-            const reward = parseFloat(document.getElementById("reward-ftf").value);
-            const prime = reward * 0.065;
-            saveActivity("FTF", prime, {reward});
-            formFTF.reset();
-        });
-        formsContainer.appendChild(formFTF);
-    }
-
-    if(roles.includes("JSD")) {
-        const formJSD = document.createElement("form");
-        formJSD.innerHTML = `
-            <h2>JSD - Protection audience</h2>
-            <input type="number" placeholder="Durée de l'audience (heures)" id="hours-jsd" required>
-            <button type="submit">Calculer Prime</button>
-        `;
-        formJSD.addEventListener("submit", e=>{
-            e.preventDefault();
-            let hours = parseFloat(document.getElementById("hours-jsd").value);
-            let prime = 125 * Math.ceil(hours);
-            saveActivity("JSD", prime, {hours});
-            formJSD.reset();
-        });
-        formsContainer.appendChild(formJSD);
-    }
-
-    if(roles.includes("SRT")) {
-        const formSRT = document.createElement("form");
-        formSRT.innerHTML = `
-            <h2>SRT - Prime d'activité</h2>
-            <input type="number" placeholder="Heures travaillées" id="hours-srt" required>
-            <input type="number" placeholder="Prime par heure $" id="rate-srt" required>
-            <button type="submit">Calculer Prime</button>
-        `;
-        formSRT.addEventListener("submit", e=>{
-            e.preventDefault();
-            const hours = parseFloat(document.getElementById("hours-srt").value);
-            const rate = parseFloat(document.getElementById("rate-srt").value);
-            const prime = hours * rate;
-            saveActivity("SRT", prime, {hours, rate});
-            formSRT.reset();
-        });
-        formsContainer.appendChild(formSRT);
-    }
-
-    if(roles.includes("AFD")) {
-        const formAFD = document.createElement("form");
-        formAFD.innerHTML = `
-            <h2>AFD - Convois</h2>
-            <input type="number" placeholder="Nombre de convois" id="conv-afd" required>
-            <button type="submit">Calculer Prime</button>
-        `;
-        formAFD.addEventListener("submit", e=>{
-            e.preventDefault();
-            const conv = parseInt(document.getElementById("conv-afd").value, 10);
-            const prime = conv * 500;
-            saveActivity("AFD", prime, {conv});
-            formAFD.reset();
-        });
-        formsContainer.appendChild(formAFD);
-    }
-
-    if(roles.includes("COM")) {
-        const formCOM = document.createElement("form");
-        formCOM.innerHTML = `
-            <h2>COM - Publications/Vidéos</h2>
-            <input type="number" placeholder="Nombre de publications" id="pub-com" required>
-            <input type="number" placeholder="Nombre de vidéos" id="vid-com" required>
-            <button type="submit">Calculer Prime</button>
-        `;
-        formCOM.addEventListener("submit", e=>{
-            e.preventDefault();
-            const pub = parseInt(document.getElementById("pub-com").value, 10);
-            const vid = parseInt(document.getElementById("vid-com").value, 10);
-            const prime = pub*250 + vid*500;
-            saveActivity("COM", prime, {pub, vid});
-            formCOM.reset();
-        });
-        formsContainer.appendChild(formCOM);
-    }
-
-    if(roles.includes("HC")) {
-        const formHC = document.createElement("form");
-        formHC.innerHTML = `
-            <h2>HC - Prime d'activité</h2>
-            <input type="number" placeholder="Heures travaillées" id="hours-hc" required>
-            <input type="number" placeholder="Prime par heure $" id="rate-hc" required>
-            <button type="submit">Calculer Prime</button>
-        `;
-        formHC.addEventListener("submit", e=>{
-            e.preventDefault();
-            const hours = parseFloat(document.getElementById("hours-hc").value);
-            const rate = parseFloat(document.getElementById("rate-hc").value);
-            const prime = hours * rate;
-            saveActivity("HC", prime, {hours, rate});
-            formHC.reset();
-        });
-        formsContainer.appendChild(formHC);
-    }
-}
-
-// Vérification connexion et récupération rôles
-onAuthStateChanged(auth, async user=>{
-    if(!user){
-        window.location.href = "login.html";
-        return;
-    }
-
-    // Récupération rôles depuis Firestore
-    const userDoc = await getDocs(query(collection(db, "users"), where("uid", "==", user.uid)));
-    let roles = [];
-    userDoc.forEach(docSnap=>{
-        roles = docSnap.data().roles || [];
-    });
-
-    createForms(roles);
-    loadMyActivities();
+// Vérification connexion
+onAuthStateChanged(auth, user=>{
+    if(!user) window.location.href="login.html";
+    else loadHistory();
 });
-
 </script>
+
 </body>
 </html>
