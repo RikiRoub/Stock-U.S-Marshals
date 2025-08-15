@@ -36,9 +36,9 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
         // Redirection selon les rôles
         // Exemple : si l’utilisateur a AFD ou USMS, le rediriger vers armes_a_feu.html
         if (roles.includes("AFD")) {
-            window.location.href = "armes_a_feu.html";
+            window.location.href = "afd/armes_a_feu.html";
         } else if (roles.includes("USMS")) {
-            window.location.href = "arme_blanche.html"; // exemple
+            window.location.href = "afd/arme_blanche.html"; // exemple
         } else {
             window.location.href = "dashboard.html"; // page par défaut
         }
