@@ -27,7 +27,15 @@
         <input type="text" id="date" placeholder="DATE D'ENTRE SAISIES" required>
         <input type="text" id="lieu" placeholder="LIEU DE SAISIE" required>
         <input type="text" id="provenance" placeholder="PROVENANCE PRÉSUMÉE" required>
-        <input type="text" id="statut" placeholder="STATUT ACTUEL" required>
+
+        <select id="statut" required>
+            <option value="">STATUT ACTUEL</option>
+            <option>Disponible</option>
+            <option>En Maintenance</option>
+            <option>Confisqué</option>
+            <option>En Cours de Saisie</option>
+        </select>
+
         <input type="text" id="affaires" placeholder="AFFAIRS LIÉE" required>
 
         <select id="typeArmes" required>
@@ -142,7 +150,14 @@
                         <td>${item.date}</td>
                         <td>${item.lieu}</td>
                         <td>${item.provenance}</td>
-                        <td>${item.statut}</td>
+                        <td>
+                            <select onchange="modifierSelect('${docSnap.id}','statut', this.value)">
+                                <option ${item.statut === "Disponible" ? "selected" : ""}>Disponible</option>
+                                <option ${item.statut === "En Maintenance" ? "selected" : ""}>En Maintenance</option>
+                                <option ${item.statut === "Confisqué" ? "selected" : ""}>Confisqué</option>
+                                <option ${item.statut === "En Cours de Saisie" ? "selected" : ""}>En Cours de Saisie</option>
+                            </select>
+                        </td>
                         <td>${item.affaires}</td>
                         <td>
                             <select onchange="modifierSelect('${docSnap.id}','stockage', this.value)">
@@ -174,21 +189,4 @@
             const article = {
                 nom: document.getElementById("nom").value.trim(),
                 numeroSerie: document.getElementById("numeroSerie").value.trim(),
-                date: document.getElementById("date").value.trim(),
-                lieu: document.getElementById("lieu").value.trim(),
-                provenance: document.getElementById("provenance").value.trim(),
-                statut: document.getElementById("statut").value.trim(),
-                affaires: document.getElementById("affaires").value.trim(),
-                typeArmes: document.getElementById("typeArmes").value,
-                calibre: document.getElementById("calibre").value,
-                stockage: document.getElementById("stockage").value
-            };
-            ajouterArticle(article);
-            this.reset();
-        });
-
-        afficherStock();
-        window.supprimer = supprimer;
-    </script>
-</body>
-</html>
+                date: document.getElementById
