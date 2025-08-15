@@ -53,8 +53,8 @@ onAuthStateChanged(auth, async (user) => {
         window.location.href = "login.html";
         return;
     }
-    const role = docSnap.data().role;
-    if (role !== "AFD") {
+    const roles = docSnap.data().roles || [];
+    if (!roles.includes("AFD")) {
         alert("Accès interdit");
         window.location.href = "index.html";
     }
