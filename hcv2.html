@@ -88,14 +88,14 @@ function exportToExcel(data) {
     link.click();
 }
 
-// Charger les activités de la semaine
+// Charger les activités de l'utilisateur
 async function loadAllActivities() {
     hcTableBody.innerHTML = "";
     totalTableBody.innerHTML = "";
 
     const startWeek = getStartOfWeek();
     const q = query(
-        collection(db, "weeklyActivities"),
+        collection(db, "userActivities"),
         where("createdAt", ">=", Timestamp.fromDate(startWeek)),
         orderBy("createdAt")
     );
