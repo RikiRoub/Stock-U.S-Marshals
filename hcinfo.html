@@ -2,31 +2,33 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<title>Gestion des Comptes - HC</title>
+<title>Liste des Comptes - HC</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body { font-family: Arial, sans-serif; margin:20px; background:#f7f9fc; }
-table { width:100%; border-collapse: collapse; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
-th, td { padding:10px; border:1px solid #ddd; text-align:center; }
+h1 { text-align:center; margin-bottom:20px; }
+table { width:100%; border-collapse: collapse; margin-top:20px; }
+th, td { border:1px solid #ddd; padding:10px; text-align:center; }
 th { background:#4D96FF; color:white; }
-td[contenteditable="true"] { background:#f0f8ff; }
-button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; background:#4D96FF; color:white; }
-button:hover { background:#357AE8; }
+button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; }
+.save-btn { background:#28a745; color:white; }
 </style>
 </head>
 <body>
 
-<h1>Liste des Comptes HC</h1>
+<h1>Liste des Comptes Utilisateurs - HC</h1>
+<p id="welcome-msg"></p>
+
 <table id="users-table">
   <thead>
     <tr>
-      <th>Email</th>
       <th>Nom</th>
+      <th>Email</th>
       <th>Matricule</th>
       <th>Téléphone</th>
       <th>RIB</th>
       <th>Rôles</th>
-      <th>Action</th>
+      <th>Actions</th>
     </tr>
   </thead>
   <tbody></tbody>
@@ -34,7 +36,8 @@ button:hover { background:#357AE8; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
@@ -46,65 +49,46 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const db = getFirestore(app);
 
-const tbody = document.querySelector("#users-table tbody");
+const tableBody = document.querySelector("#users-table tbody");
 
-async function fetchHCUsers() {
-  const querySnapshot = await getDocs(collection(db, "users"));
-  const hcUsers = [];
+onAuthStateChanged(auth, async (user)=>{
+  if(!user){ document.body.innerHTML="<h2>Accès refusé. Connectez-vous.</h2>"; return; }
+  document.getElementById("welcome-msg").innerText=`Connecté : ${user.email}`;
+  loadHCUsers();
+});
 
-  for (const docSnap of querySnapshot.docs) {
+async function loadHCUsers(){
+  tableBody.innerHTML="";
+  const usersSnap = await getDocs(collection(db,"profiles"));
+  usersSnap.forEach(docSnap=>{
     const data = docSnap.data();
-    const roles = Array.isArray(data.roles) ? data.roles : [data.roles];
-    if (roles.includes("HC")) {
-      // Récupérer le nom depuis profiles
-      const profileSnap = await getDocs(collection(db, "profiles"));
-      let fullName = "";
-      const profileDoc = await doc(db, "profiles", docSnap.id);
-      const profileData = await profileDoc.get();
-      if(profileData.exists) fullName = profileData.data().fullName || "";
-      
-      hcUsers.push({ id: docSnap.id, email: data.email || "", fullName, matricule: data.matricule || "", phone: data.phone || "", rib: data.rib || "", roles });
+    if(data.roles && data.roles.includes("HC")){
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${data.fullName||""}</td>
+        <td>${data.email||""}</td>
+        <td><input type="text" value="${data.matricule||""}" /></td>
+        <td><input type="text" value="${data.phone||""}" /></td>
+        <td><input type="text" value="${data.rib||""}" /></td>
+        <td>${data.roles.join(", ")}</td>
+        <td><button class="save-btn">💾 Sauvegarder</button></td>
+      `;
+      const saveBtn = tr.querySelector(".save-btn");
+      saveBtn.addEventListener("click", async ()=>{
+        await updateDoc(doc(db,"profiles",docSnap.id), {
+          matricule: tr.children[2].querySelector("input").value,
+          phone: tr.children[3].querySelector("input").value,
+          rib: tr.children[4].querySelector("input").value
+        });
+        alert("✅ Mis à jour !");
+      });
+      tableBody.appendChild(tr);
     }
-  }
-
-  renderUsers(hcUsers);
-}
-
-function renderUsers(users) {
-  tbody.innerHTML = "";
-  users.forEach(user => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${user.email}</td>
-      <td>${user.fullName || "-"}</td>
-      <td contenteditable="true" data-field="matricule">${user.matricule || "-"}</td>
-      <td contenteditable="true" data-field="phone">${user.phone || "-"}</td>
-      <td contenteditable="true" data-field="rib">${user.rib || "-"}</td>
-      <td>${user.roles.join(", ")}</td>
-      <td><button class="save-btn" data-id="${user.id}">💾 Sauvegarder</button></td>
-    `;
-    tbody.appendChild(row);
-  });
-
-  document.querySelectorAll(".save-btn").forEach(btn => {
-    btn.addEventListener("click", async () => {
-      const id = btn.dataset.id;
-      const row = btn.closest("tr");
-      const dataToSave = {
-        matricule: row.querySelector('[data-field="matricule"]').innerText,
-        phone: row.querySelector('[data-field="phone"]').innerText,
-        rib: row.querySelector('[data-field="rib"]').innerText
-      };
-      await setDoc(doc(db, "users", id), dataToSave, { merge: true });
-      alert("✅ Modifications enregistrées !");
-    });
   });
 }
-
-fetchHCUsers();
 </script>
-
 </body>
 </html>
