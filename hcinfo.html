@@ -6,28 +6,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body { font-family: Arial, sans-serif; margin:20px; background:#f7f9fc; }
-h1 { text-align:center; margin-bottom:20px; }
-table { width:100%; border-collapse: collapse; margin-top:20px; }
-th, td { border:1px solid #ddd; padding:10px; text-align:center; }
+table { width:100%; border-collapse: collapse; background:#fff; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+th, td { padding:10px; border:1px solid #ddd; text-align:center; }
 th { background:#4D96FF; color:white; }
-button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; }
-.save-btn { background:#28a745; color:white; }
+td[contenteditable="true"] { background:#f0f8ff; }
+button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; background:#4D96FF; color:white; }
+button:hover { background:#357AE8; }
 </style>
 </head>
 <body>
 
-<h1>Liste des Comptes Utilisateurs - HC</h1>
-<p id="welcome-msg"></p>
-
+<h1>Liste des Comptes HC</h1>
 <table id="users-table">
   <thead>
     <tr>
       <th>Email</th>
+      <th>Nom</th>
       <th>Matricule</th>
       <th>Téléphone</th>
       <th>RIB</th>
       <th>Rôles</th>
-      <th>Actions</th>
+      <th>Action</th>
     </tr>
   </thead>
   <tbody></tbody>
@@ -35,84 +34,76 @@ button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
-import { getFirestore, collection, getDocs, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+import { getFirestore, collection, getDocs, doc, setDoc } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyDArc4SUw3MO06QJwD6xzEKsuKFsfVcjsQ",
     authDomain: "gestion-stock-d63d0.firebaseapp.com",
     projectId: "gestion-stock-d63d0",
-    storageBucket: "gestion-stock-d63d0",
+    storageBucket: "gestion-stock-d63d0.appspot.com",
     messagingSenderId: "865227689174",
     appId: "1:865227689174:web:213e7f6e44f183c6928d77"
 };
 
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 
-function renderUsers(snapshot){
-    const tbody = document.querySelector("#users-table tbody");
-    tbody.innerHTML="";
-    snapshot.forEach(docSnap=>{
-        const user = docSnap.data();
-        const row = document.createElement("tr");
-        row.innerHTML = `
-            <td>${user.email || "-"}</td>
-            <td contenteditable="true" data-field="matricule">${user.matricule || "-"}</td>
-            <td contenteditable="true" data-field="telephone">${user.telephone || "-"}</td>
-            <td contenteditable="true" data-field="rib">${user.rib || "-"}</td>
-            <td>${Array.isArray(user.roles) ? user.roles.join(", ") : user.roles || "-"}</td>
-            <td><button class="save-btn" data-id="${docSnap.id}">💾 Sauvegarder</button></td>
-        `;
-        tbody.appendChild(row);
-    });
+const tbody = document.querySelector("#users-table tbody");
 
-    // Ajout d’un event listener sur chaque bouton "Sauvegarder"
-    document.querySelectorAll(".save-btn").forEach(btn=>{
-        btn.addEventListener("click", async (e)=>{
-            const uid = e.target.dataset.id;
-            const row = e.target.closest("tr");
-            const matricule = row.querySelector('[data-field="matricule"]').innerText.trim();
-            const telephone = row.querySelector('[data-field="telephone"]').innerText.trim();
-            const rib = row.querySelector('[data-field="rib"]').innerText.trim();
+async function fetchHCUsers() {
+  const querySnapshot = await getDocs(collection(db, "users"));
+  const hcUsers = [];
 
-            await updateDoc(doc(db,"users",uid), {
-                matricule, telephone, rib
-            });
-            alert("✅ Informations mises à jour !");
-        });
-    });
+  for (const docSnap of querySnapshot.docs) {
+    const data = docSnap.data();
+    const roles = Array.isArray(data.roles) ? data.roles : [data.roles];
+    if (roles.includes("HC")) {
+      // Récupérer le nom depuis profiles
+      const profileSnap = await getDocs(collection(db, "profiles"));
+      let fullName = "";
+      const profileDoc = await doc(db, "profiles", docSnap.id);
+      const profileData = await profileDoc.get();
+      if(profileData.exists) fullName = profileData.data().fullName || "";
+      
+      hcUsers.push({ id: docSnap.id, email: data.email || "", fullName, matricule: data.matricule || "", phone: data.phone || "", rib: data.rib || "", roles });
+    }
+  }
+
+  renderUsers(hcUsers);
 }
 
-onAuthStateChanged(auth, async user=>{
-    if(!user) {
-        document.body.innerHTML="<h2>Accès refusé. Veuillez vous connecter.</h2>";
-        return;
-    }
-    document.getElementById("welcome-msg").innerText=`Bienvenue ${user.email}`;
+function renderUsers(users) {
+  tbody.innerHTML = "";
+  users.forEach(user => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${user.email}</td>
+      <td>${user.fullName || "-"}</td>
+      <td contenteditable="true" data-field="matricule">${user.matricule || "-"}</td>
+      <td contenteditable="true" data-field="phone">${user.phone || "-"}</td>
+      <td contenteditable="true" data-field="rib">${user.rib || "-"}</td>
+      <td>${user.roles.join(", ")}</td>
+      <td><button class="save-btn" data-id="${user.id}">💾 Sauvegarder</button></td>
+    `;
+    tbody.appendChild(row);
+  });
 
-    // Vérification rôle HC
-    const roleSnap = await getDoc(doc(db,"users",user.uid));
-    let hasHC = false;
-    if (roleSnap.exists()) {
-        const data = roleSnap.data();
-        if (Array.isArray(data.roles)) {
-            hasHC = data.roles.some(r => r.toLowerCase() === "hc");
-        } else if (typeof data.roles === "string") {
-            hasHC = data.roles.toLowerCase() === "hc";
-        }
-    }
+  document.querySelectorAll(".save-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.dataset.id;
+      const row = btn.closest("tr");
+      const dataToSave = {
+        matricule: row.querySelector('[data-field="matricule"]').innerText,
+        phone: row.querySelector('[data-field="phone"]').innerText,
+        rib: row.querySelector('[data-field="rib"]').innerText
+      };
+      await setDoc(doc(db, "users", id), dataToSave, { merge: true });
+      alert("✅ Modifications enregistrées !");
+    });
+  });
+}
 
-    if (!hasHC) {
-        document.body.innerHTML="<h2>Accès réservé aux utilisateurs HC.</h2>";
-        return;
-    }
-
-    // Récupération des utilisateurs
-    const snapshot = await getDocs(collection(db,"users"));
-    renderUsers(snapshot.docs);
-});
+fetchHCUsers();
 </script>
 
 </body>
