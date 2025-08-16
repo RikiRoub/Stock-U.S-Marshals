@@ -92,60 +92,51 @@ let uploadedImageFile = null;
 const defaultPic = "https://via.placeholder.com/120";
 let currentUser = null;
 
-// Prévisualisation image
 document.getElementById("profileImage").addEventListener("change", (e) => {
   uploadedImageFile = e.target.files[0];
   if (uploadedImageFile) profilePic.src = URL.createObjectURL(uploadedImageFile);
 });
 
-// Supprimer la photo
 removeBtn.addEventListener("click", async () => {
   if (!currentUser) return;
   try {
     const imageRef = ref(storage, `profilePictures/${currentUser.uid}`);
     await deleteObject(imageRef).catch(()=>{});
-    await setDoc(doc(db, "profiles", currentUser.uid), { photoURL: "" }, { merge: true });
+    await setDoc(doc(db,"profiles",currentUser.uid), { photoURL:"" }, { merge:true });
     profilePic.src = defaultPic;
-    updateCard({ photoURL: "" });
-    msg.innerText = "✅ Photo supprimée.";
-    msg.style.color = "green";
+    updateCard({ photoURL:"" });
+    msg.innerText="✅ Photo supprimée."; msg.style.color="green";
   } catch (error) {
-    msg.innerText = "❌ Erreur suppression : " + error.message;
-    msg.style.color = "red";
+    msg.innerText="❌ Erreur suppression : "+error.message; msg.style.color="red";
   }
 });
 
-// Auth et récupération du profil
 onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    document.body.innerHTML = "<h2>Accès refusé. Veuillez vous connecter.</h2>";
-    return;
-  }
+  if(!user){ document.body.innerHTML="<h2>Accès refusé. Connectez-vous.</h2>"; return; }
   currentUser = user;
-  document.getElementById("welcome-msg").innerText = `Bienvenue ${user.email}`;
-  const userDocRef = doc(db, "profiles", user.uid);
-  const userDocSnap = await getDoc(userDocRef);
+  document.getElementById("welcome-msg").innerText=`Bienvenue ${user.email}`;
 
-  if (userDocSnap.exists()) {
+  const userDocRef = doc(db,"profiles",user.uid);
+  const userDocSnap = await getDoc(userDocRef);
+  if(userDocSnap.exists()){
     const data = userDocSnap.data();
-    document.getElementById("fullName").value = data.fullName || "";
-    document.getElementById("phone").value = data.phone || "";
-    document.getElementById("matricule").value = data.matricule || "";
-    document.getElementById("rib").value = data.rib || "";
-    profilePic.src = data.photoURL || defaultPic;
+    document.getElementById("fullName").value=data.fullName||"";
+    document.getElementById("phone").value=data.phone||"";
+    document.getElementById("matricule").value=data.matricule||"";
+    document.getElementById("rib").value=data.rib||"";
+    profilePic.src=data.photoURL||defaultPic;
     updateCard(data);
   }
 
-  form.addEventListener("submit", async (e) => {
+  form.addEventListener("submit", async (e)=>{
     e.preventDefault();
     try {
       let photoURL = profilePic.src;
-      if (uploadedImageFile) {
+      if(uploadedImageFile){
         const imageRef = ref(storage, `profilePictures/${user.uid}`);
         await uploadBytes(imageRef, uploadedImageFile);
         photoURL = await getDownloadURL(imageRef);
       }
-
       const profileData = {
         fullName: document.getElementById("fullName").value,
         phone: document.getElementById("phone").value,
@@ -154,29 +145,24 @@ onAuthStateChanged(auth, async (user) => {
         email: user.email,
         photoURL
       };
-
-      await setDoc(userDocRef, profileData, { merge: true });
+      await setDoc(userDocRef, profileData);
       updateCard(profileData);
-      msg.innerText = "✅ Profil mis à jour !";
-      msg.style.color = "green";
-    } catch (error) {
-      msg.innerText = "❌ Erreur : " + error.message;
-      msg.style.color = "red";
+      msg.innerText="✅ Profil mis à jour !"; msg.style.color="green";
+    } catch(error){
+      msg.innerText="❌ Erreur : "+error.message; msg.style.color="red";
     }
   });
 });
 
-// Mettre à jour la carte récap
-function updateCard(data) {
-  profileCard.style.display = "block";
-  document.getElementById("card-photo").src = data.photoURL || defaultPic;
-  document.getElementById("card-name").innerText = data.fullName || "Nom non défini";
-  document.getElementById("card-email").innerText = data.email || "";
-  document.getElementById("card-phone").innerText = data.phone || "";
-  document.getElementById("card-matricule").innerText = data.matricule || "";
-  document.getElementById("card-rib").innerText = data.rib || "";
+function updateCard(data){
+  profileCard.style.display="block";
+  document.getElementById("card-photo").src=data.photoURL||defaultPic;
+  document.getElementById("card-name").innerText=data.fullName||"Nom non défini";
+  document.getElementById("card-email").innerText=data.email||"";
+  document.getElementById("card-phone").innerText=data.phone||"";
+  document.getElementById("card-matricule").innerText=data.matricule||"";
+  document.getElementById("card-rib").innerText=data.rib||"";
 }
 </script>
-
 </body>
 </html>
